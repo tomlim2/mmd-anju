@@ -27,6 +27,29 @@ tools/                  # Python analysis scripts (PMX/VMD parsing)
 data -> symlink         # Local MMD archive (not in repo)
 ```
 
+## TODO
+
+### Multi-model & Camera
+- [ ] Multi-model support (multiple PMX slots for multi-character VMDs like Knife MIKU/RIN/LEN)
+- [ ] Camera VMD playback with free/VMD camera toggle (OrbitControls ↔ VMD camera switch)
+
+### VMD special types (non-playable → playable)
+- [ ] `hands-facial` VMD: merge finger/hand bone tracks + morph tracks into main body motion
+- [ ] `facial-only` VMD: overlay morph-only VMD on top of body motion (expression layer)
+- [ ] `camera` VMD: sync camera keyframes with character motion playback
+- [ ] `prop` VMD: accessory/stage motion (microphone stand, etc.) — load as separate mesh
+
+### UX Improvements
+- [ ] Keyboard shortcuts (Space=play/pause, M=mute, ←→=seek, ↑↓=volume)
+- [ ] Timeline hit area expansion (hover: 4px→8px, touch: always 8px)
+- [ ] Error feedback (show load failures in #loading-status)
+- [ ] Current song info display (separate from select dropdowns)
+- [ ] Prev/Next track buttons (⏮ ⏭)
+- [ ] Focus-visible styles on all interactive elements
+- [ ] Idle auto-hide controls (3s timeout, fade out)
+- [ ] Song transition fade (audio crossfade 0.3s)
+- [ ] Debug info toggle (D key, default visible for now)
+
 ## Related Resources
 
 - **MMD archive:** `mmd-archive` in repo-paths.json

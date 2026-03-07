@@ -149,6 +149,19 @@ def parse_vmd_meta(filepath):
         }
 
 
+FINGER_BONES = [
+    '右親指０', '右親指１', '右親指２', '右人指１', '右人指２', '右人指３',
+    '右中指１', '右中指２', '右中指３', '右薬指１', '右薬指２', '右薬指３',
+    '右小指１', '右小指２', '右小指３',
+    '左親指０', '左親指１', '左親指２', '左人指１', '左人指２', '左人指３',
+    '左中指１', '左中指２', '左中指３', '左薬指１', '左薬指２', '左薬指３',
+    '左小指１', '左小指２', '左小指３',
+]
+
+# Non-playable: not a full character body motion
+NON_PLAYABLE_TYPES = {'camera', 'facial-only', 'hands-facial', 'prop', 'partial'}
+
+
 def detect_target(meta):
     """Detect target model family from VMD metadata."""
     bone_names = meta['bone_names']
@@ -158,6 +171,30 @@ def detect_target(meta):
     if meta['bone_kf_count'] == 0 and meta['camera_kf_count'] > 0:
         return 'camera', 100, 'camera-only VMD'
 
+    # Facial-only (morphs only, no bones)
+    if meta['morph_kf_count'] > 0 and meta['bone_kf_count'] == 0:
+        return 'facial-only', 80, 'morph keyframes only'
+
+    # Prop / accessory motion (no core humanoid bones at all)
+    core_hits = sum(1 for b in STANDARD_BONES['core'] if b in bone_names)
+    arm_hits = sum(1 for b in STANDARD_BONES['arms'] if b in bone_names)
+    leg_hits = sum(1 for b in STANDARD_BONES['legs'] if b in bone_names)
+    finger_hits = sum(1 for b in FINGER_BONES if b in bone_names)
+
+    # Hands+facial: only finger/hand bones + optional morphs, no body core
+    if core_hits == 0 and finger_hits >= 5 and arm_hits == 0 and leg_hits == 0:
+        return 'hands-facial', 90, f'finger bones only ({finger_hits} fingers)'
+
+    # Prop: no core, no arms, no legs, no fingers — stage/accessory/IK-only
+    if core_hits == 0 and arm_hits == 0 and leg_hits == 0 and finger_hits == 0:
+        if len(bone_names) > 0:
+            return 'prop', 90, f'non-humanoid bones ({len(bone_names)} bones)'
+        return 'partial', 50, 'empty bone set'
+
+    # Partial: has some core but very few bones overall
+    if core_hits < 3 and len(bone_names) < 5:
+        return 'partial', 50, f'only {len(bone_names)} bones'
+
     # Millishita (romaji bones)
     profile = PROFILES['millishita']
     if all(b in bone_names for b in profile['required']):
@@ -165,14 +202,10 @@ def detect_target(meta):
         return 'millishita', round(len(hits) / len(profile['markers']) * 100), \
                f'romaji bones ({len(hits)}/{len(profile["markers"])} markers)'
 
-    # Standard MMD — check how many core bones match
-    core_hits = sum(1 for b in STANDARD_BONES['core'] if b in bone_names)
-    if core_hits < 3:
-        # Might be a facial-only or partial VMD
-        if meta['morph_kf_count'] > 0 and meta['bone_kf_count'] == 0:
-            return 'facial-only', 80, 'morph keyframes only'
-        if len(bone_names) < 5:
-            return 'partial', 50, f'only {len(bone_names)} bones'
+    # Multi-layer bone (多段ボーン): has core but also non-standard structure
+    # Detected by model name or very unusual bone count with core present
+    if core_hits < 3 and len(bone_names) > 30:
+        return 'partial', 50, f'insufficient core bones ({core_hits}/5)'
 
     # Check for family-specific hints in bone names
     hint_scores = {}
@@ -194,7 +227,6 @@ def detect_target(meta):
 
     # Fallback: standard MMD bones present → likely animasa-compatible
     if core_hits >= 3:
-        extra_hits = sum(1 for b in STANDARD_BONES['extra'] if b in bone_names)
         has_groove = 'グルーブ' in bone_names
         if has_groove:
             return 'standard-extended', 40, 'has groove bone, no family-specific hints'
@@ -215,11 +247,14 @@ def detect_file(filepath, output_json=False):
 
     family, confidence, reason = detect_target(meta)
 
+    playable = family not in NON_PLAYABLE_TYPES
+
     result = {
         'file': str(filepath),
         'model_name': meta['model_name'],
         'target': family,
         'confidence': confidence,
+        'playable': playable,
         'reason': reason,
         'bone_count': len(meta['bone_names']),
         'bone_kf_count': meta['bone_kf_count'],
@@ -230,18 +265,19 @@ def detect_file(filepath, output_json=False):
     }
 
     if not output_json:
+        play = '>' if playable else 'x'
         tag = f'[{family}]'
         dur = f'{meta["duration_sec"]}s'
-        print(f'{tag:20s} {confidence:3d}%  model="{meta["model_name"]}"  '
+        print(f'{play} {tag:20s} {confidence:3d}%  model="{meta["model_name"]}"  '
               f'{len(meta["bone_names"])} bones  {meta["bone_kf_count"]} kf  '
               f'{meta["morph_kf_count"]} morphs  {meta["camera_kf_count"]} cam  '
               f'{dur:>7s}  {filepath}')
-        print(f'                     reason: {reason}')
+        print(f'                       reason: {reason}')
         if meta['bone_names'] and len(meta['bone_names']) <= 50:
             sorted_bones = sorted(meta['bone_names'],
                                   key=lambda b: -meta['bone_kf_per_bone'].get(b, 0))
             top = sorted_bones[:15]
-            print(f'                     top bones: {", ".join(top)}')
+            print(f'                       top bones: {", ".join(top)}')
 
     return result
 
