@@ -18,26 +18,23 @@ export class UI {
     this.rippleFx = rippleFx;
     this.mirrorFx = mirrorFx;
     this._ac = new AbortController();
-    this._manifest = null;
-    this._zipEntries = null;
-    this._zipName = '';
     this._pmxPath = '';
     this._vmdPath = '';
     this._currentVmd = null;   // {vmdPath, audioPath} of currently playing song
     this._pendingVmd = null;   // VMD blob fetched before mesh is available
 
-    this._initZipUpload();
-    this._initVMDDropdowns();
+    this._initPmxSelect();
+    this._initSampleMode();
     this._initPlayback();
     this._initTimeline();
     this._initFxSelectors();
     this._loadDefaultModel();
 
-    this.audio.onEnded(() => this._playRandomSong());
+    this.audio.onEnded(() => this._playNextSample());
   }
 
   async _loadDefaultModel() {
-    const path = 'data/model/Hatsune Miku.pmx';
+    const path = 'samples/pmx/animasa/miku.pmx';
     const statusEl = document.getElementById('loading-status');
     statusEl.textContent = 'Loading...';
 
@@ -62,6 +59,22 @@ export class UI {
           }
         }
         this.animation.playing = true;
+        try {
+          await this.audio.audioElement.play();
+          this._updatePlayPauseButton(true);
+        } catch {
+          this.animation.playing = false;
+          this._updatePlayPauseButton(false);
+          const resume = () => {
+            this.audio.play();
+            this.animation.playing = true;
+            this._updatePlayPauseButton(true);
+            document.removeEventListener('click', resume);
+            document.removeEventListener('keydown', resume);
+          };
+          document.addEventListener('click', resume, { once: true });
+          document.addEventListener('keydown', resume, { once: true });
+        }
       }
 
       statusEl.textContent = '';
@@ -71,120 +84,53 @@ export class UI {
     }
   }
 
-  // --- ZIP Upload + PMX Selection ---
+  // --- PMX Model Selection ---
 
-  _initZipUpload() {
-    const inputZip = document.getElementById('input-zip');
+  async _initPmxSelect() {
     const selectPmx = document.getElementById('select-pmx');
     const sig = { signal: this._ac.signal };
 
-    document.getElementById('btn-upload-zip').addEventListener('click', () => {
-      inputZip.click();
-    }, sig);
+    try {
+      const res = await fetch('samples/pmx/manifest.json');
+      if (!res.ok) return;
+      this._pmxManifest = await res.json();
+    } catch {
+      return;
+    }
 
-    inputZip.addEventListener('change', async () => {
-      if (inputZip.files.length > 0) {
-        await this._handleZipFile(inputZip.files[0]);
-        inputZip.value = '';
-      }
-    }, sig);
+    for (const entry of this._pmxManifest) {
+      const opt = document.createElement('option');
+      opt.value = JSON.stringify(entry);
+      opt.textContent = entry.name;
+      selectPmx.appendChild(opt);
+    }
+    selectPmx.disabled = false;
 
     selectPmx.addEventListener('change', async () => {
-      if (!selectPmx.value || !this._zipEntries) return;
-      await this._loadPmxFromZip(selectPmx.value);
+      if (!selectPmx.value) return;
+      const entry = JSON.parse(selectPmx.value);
+      if (entry.type === 'zip') {
+        await this._loadPmxFromZipPath('samples/pmx/' + entry.path);
+      } else {
+        await this._loadPmxFromSamplePath('samples/pmx/' + entry.path);
+      }
     }, sig);
   }
 
-  async _handleZipFile(file) {
-    try {
-      const zip = await JSZip.loadAsync(file);
-      const entries = new Map();
-      const pmxPaths = [];
-
-      for (const [path, entry] of Object.entries(zip.files)) {
-        if (entry.dir) continue;
-        const blob = await entry.async('blob');
-        entries.set(path, blob);
-        if (/\.pmx$/i.test(path)) pmxPaths.push(path);
-      }
-
-      this._zipEntries = entries;
-      this._zipName = file.name;
-
-      const selectPmx = document.getElementById('select-pmx');
-      selectPmx.innerHTML = '<option value="">PMX</option>';
-
-      for (const pmxPath of pmxPaths) {
-        const blob = entries.get(pmxPath);
-        const buffer = await blob.arrayBuffer();
-        if (hasHumanoidBones(buffer)) {
-          const opt = document.createElement('option');
-          opt.value = pmxPath;
-          opt.textContent = pmxPath.split('/').pop();
-          selectPmx.appendChild(opt);
-        }
-      }
-
-      selectPmx.disabled = false;
-      const count = selectPmx.options.length - 1;
-      document.getElementById('title').style.display = 'none';
-
-      // Auto-load first humanoid PMX
-      if (count > 0) {
-        selectPmx.selectedIndex = 1;
-        await this._loadPmxFromZip(selectPmx.value);
-      }
-    } catch (err) {
-      console.error('ZIP error:', err);
-    }
-  }
-
-  async _loadPmxFromZip(pmxPath) {
-    const pmxName = pmxPath.split('/').pop();
+  async _loadPmxFromSamplePath(pmxPath) {
     const statusEl = document.getElementById('loading-status');
     statusEl.textContent = 'Loading...';
 
-    // Save current audio time for re-sync
     const savedTime = this.audio.currentTime;
-    const wasPlaying = this.animation.playing;
-
-    // Clean up model state (but keep audio playing)
     this.animation.destroy();
     this.riseFx.resetTime();
     this.rippleFx.resetTime();
 
     try {
-      const pmxBlob = this._zipEntries.get(pmxPath);
-      const pmxFile = new File([pmxBlob], pmxName);
-
-      const blobs = new Map();
-      for (const [path, blob] of this._zipEntries) {
-        blobs.set(path, new File([blob], path.split('/').pop()));
-      }
-
-      await this.loader.loadPMXFromBlobs(pmxFile, blobs);
+      await this.loader.loadPMXFromPath(pmxPath);
       this._pmxPath = pmxPath;
       this._updateDebugPaths();
-
-      // Re-apply VMD: use _currentVmd (playing) or _pendingVmd (pre-loaded)
-      const vmdToApply = this._currentVmd || this._pendingVmd;
-      if (vmdToApply) {
-        await this._applyVmdToMesh(vmdToApply.vmdBlob);
-        this._currentVmd = vmdToApply;
-        this._pendingVmd = null;
-
-        // Sync animation to audio time
-        if (this.animation.helper && this.animation.mesh) {
-          const obj = this.animation.helper.objects.get(this.animation.mesh);
-          if (obj && obj.mixer) {
-            obj.mixer.setTime(savedTime);
-            this.riseFx.seekTo(savedTime);
-            this.rippleFx.seekTo(savedTime);
-          }
-        }
-        this.animation.playing = true;
-      }
-
+      await this._reapplyCurrentVmd(savedTime);
       statusEl.textContent = '';
     } catch (err) {
       console.error('PMX load error:', err);
@@ -192,134 +138,125 @@ export class UI {
     }
   }
 
-  // --- VMD Artist/Song Dropdowns ---
+  async _loadPmxFromZipPath(zipUrl) {
+    const statusEl = document.getElementById('loading-status');
+    statusEl.textContent = 'Loading...';
 
-  async _initVMDDropdowns() {
-    const artistSelect = document.getElementById('select-artist');
-    const songSelect = document.getElementById('select-song');
-    const sig = { signal: this._ac.signal };
+    const savedTime = this.audio.currentTime;
+    this.animation.destroy();
+    this.riseFx.resetTime();
+    this.rippleFx.resetTime();
 
     try {
-      const res = await fetch('data/vmd-manifest.json');
-      if (!res.ok) return;
-      this._manifest = await res.json();
-    } catch {
-      return;
-    }
+      const res = await fetch(zipUrl);
+      if (!res.ok) throw new Error(`Failed to fetch ZIP: ${res.status}`);
+      const zipBlob = await res.blob();
+      const zip = await JSZip.loadAsync(zipBlob);
 
-    for (const artist of this._manifest.artists) {
-      const opt = document.createElement('option');
-      opt.value = artist.name;
-      opt.textContent = artist.name;
-      artistSelect.appendChild(opt);
-    }
-
-    artistSelect.addEventListener('change', () => {
-      songSelect.innerHTML = '<option value="">Song</option>';
-      const artist = this._manifest.artists.find(a => a.name === artistSelect.value);
-      if (!artist) {
-        songSelect.disabled = true;
-        return;
+      const entries = new Map();
+      const pmxPaths = [];
+      for (const [path, entry] of Object.entries(zip.files)) {
+        if (entry.dir) continue;
+        const blob = await entry.async('blob');
+        entries.set(path, blob);
+        if (/\.pmx$/i.test(path)) pmxPaths.push(path);
       }
-      for (const song of artist.songs) {
-        const opt = document.createElement('option');
-        opt.value = JSON.stringify({ vmd: song.vmd, audio: song.audio });
-        opt.textContent = song.name;
-        songSelect.appendChild(opt);
-      }
-      songSelect.disabled = false;
-    }, sig);
 
+      // Find first humanoid PMX
+      let targetPmx = pmxPaths[0];
+      for (const p of pmxPaths) {
+        const buf = await entries.get(p).arrayBuffer();
+        if (hasHumanoidBones(buf)) { targetPmx = p; break; }
+      }
+      if (!targetPmx) throw new Error('No PMX found in ZIP');
+
+      const pmxName = targetPmx.split('/').pop();
+      const pmxFile = new File([entries.get(targetPmx)], pmxName);
+      const blobs = new Map();
+      for (const [path, blob] of entries) {
+        blobs.set(path, new File([blob], path.split('/').pop()));
+      }
+
+      await this.loader.loadPMXFromBlobs(pmxFile, blobs);
+      this._pmxPath = targetPmx;
+      this._updateDebugPaths();
+      await this._reapplyCurrentVmd(savedTime);
+      statusEl.textContent = '';
+    } catch (err) {
+      console.error('ZIP PMX load error:', err);
+      statusEl.textContent = '';
+    }
+  }
+
+  async _reapplyCurrentVmd(savedTime) {
+    const vmdToApply = this._currentVmd || this._pendingVmd;
+    if (!vmdToApply) return;
+
+    await this._applyVmdToMesh(vmdToApply.vmdBlob);
+    this._currentVmd = vmdToApply;
+    this._pendingVmd = null;
+
+    if (this.animation.helper && this.animation.mesh) {
+      const obj = this.animation.helper.objects.get(this.animation.mesh);
+      if (obj && obj.mixer) {
+        obj.mixer.setTime(savedTime);
+        this.riseFx.seekTo(savedTime);
+        this.rippleFx.seekTo(savedTime);
+      }
+    }
+    this.animation.playing = true;
+  }
+
+  // --- Sample Mode ---
+
+  _sampleSongs = [
+    { name: 'HIGHER', vmd: 'samples/vmd/higher/motion.vmd', audio: 'samples/vmd/higher/audio.mp3' },
+    { name: 'Your Affection', vmd: 'samples/vmd/your-affection/motion.vmd', audio: 'samples/vmd/your-affection/audio.mp3' },
+  ];
+  _sampleIndex = 0;
+
+  _initSampleMode() {
+    const artistSelect = document.getElementById('select-artist');
+    const songSelect = document.getElementById('select-song');
+
+    artistSelect.innerHTML = '<option value="sample" selected>Sample</option>';
+
+    songSelect.innerHTML = '<option value="">Song</option>';
+    for (const song of this._sampleSongs) {
+      const o = document.createElement('option');
+      o.value = JSON.stringify({ vmd: song.vmd, audio: song.audio });
+      o.textContent = song.name;
+      songSelect.appendChild(o);
+    }
+    songSelect.disabled = false;
+
+    const sig = { signal: this._ac.signal };
     songSelect.addEventListener('change', async () => {
       if (!songSelect.value) return;
       const { vmd, audio } = JSON.parse(songSelect.value);
-      await this._loadVMDFromManifest(vmd, audio);
+      await this._loadVMDFromPath(vmd, audio);
     }, sig);
 
-    // Auto-play on manifest load
-    this._initAutoPlay();
+    // Auto-play first sample
+    this._sampleIndex = 0;
+    const first = this._sampleSongs[0];
+    songSelect.value = JSON.stringify({ vmd: first.vmd, audio: first.audio });
+    this._loadVMDFromPath(first.vmd, first.audio);
   }
 
-  _initAutoPlay() {
-    if (!this._manifest || !this._manifest.artists.length) return;
-    this._playFirstSong();
-  }
-
-  _playFirstSong() {
-    const targetVmd = 'vmd/[Seto]/[NEW]/Summer Idol/Summer Idol/mmd_SummerIdol_RIN.vmd';
-
-    for (const artist of this._manifest.artists) {
-      const song = artist.songs.find(s => s.vmd === targetVmd);
-      if (!song) continue;
-
-      const artistSelect = document.getElementById('select-artist');
-      const songSelect = document.getElementById('select-song');
-
-      artistSelect.value = artist.name;
-      artistSelect.dispatchEvent(new Event('change'));
-
-      for (const opt of songSelect.options) {
-        if (!opt.value) continue;
-        const parsed = JSON.parse(opt.value);
-        if (parsed.vmd === targetVmd) {
-          songSelect.value = opt.value;
-          break;
-        }
-      }
-
-      this._loadVMDFromManifest(song.vmd, song.audio);
-      return;
-    }
-
-    // Fallback if target not found
-    this._playRandomSong();
-  }
-
-  _playRandomSong() {
-    if (!this._manifest || !this._manifest.artists.length) return;
-
-    // Build flat list of all songs
-    const allSongs = [];
-    for (const artist of this._manifest.artists) {
-      for (const song of artist.songs) {
-        allSongs.push({ artist: artist.name, song });
-      }
-    }
-    if (allSongs.length === 0) return;
-
-    // Pick random, excluding current song if possible
-    let candidates = allSongs;
-    if (this._currentVmd && allSongs.length > 1) {
-      candidates = allSongs.filter(s => s.song.vmd !== this._currentVmd.vmdPath);
-    }
-    const pick = candidates[Math.floor(Math.random() * candidates.length)];
-
-    // Reflect selection in dropdowns
-    const artistSelect = document.getElementById('select-artist');
+  _playNextSample() {
+    this._sampleIndex = (this._sampleIndex + 1) % this._sampleSongs.length;
+    const song = this._sampleSongs[this._sampleIndex];
     const songSelect = document.getElementById('select-song');
-
-    artistSelect.value = pick.artist;
-    artistSelect.dispatchEvent(new Event('change'));
-
-    // Find the matching option in song select
-    for (const opt of songSelect.options) {
-      if (!opt.value) continue;
-      const parsed = JSON.parse(opt.value);
-      if (parsed.vmd === pick.song.vmd) {
-        songSelect.value = opt.value;
-        break;
-      }
-    }
-
-    this._loadVMDFromManifest(pick.song.vmd, pick.song.audio);
+    songSelect.value = JSON.stringify({ vmd: song.vmd, audio: song.audio });
+    this._loadVMDFromPath(song.vmd, song.audio);
   }
 
-  async _loadVMDFromManifest(vmdPath, audioPath) {
+  async _loadVMDFromPath(vmdPath, audioPath) {
     try {
-      // Fetch VMD and audio in parallel
       const [vmdRes, audioRes] = await Promise.all([
-        fetch('data/' + vmdPath),
-        fetch('data/' + audioPath),
+        fetch(vmdPath),
+        fetch(audioPath),
       ]);
       if (!vmdRes.ok) throw new Error(`Failed to fetch VMD: ${vmdRes.status}`);
       if (!audioRes.ok) throw new Error(`Failed to fetch audio: ${audioRes.status}`);
@@ -329,14 +266,12 @@ export class UI {
       const audioBlob = await audioRes.blob();
       const audioFile = new File([audioBlob], audioPath.split('/').pop());
 
-      // Load audio source (but don't play yet — wait for VMD to be ready)
       this.audio.loadFromFile(audioFile);
 
       this._vmdPath = vmdPath;
       this._updateDebugPaths();
 
       if (this.loader.mesh) {
-        // Mesh available: apply VMD, then start both together
         this.animation.destroy();
         this.riseFx.resetTime();
         this.rippleFx.resetTime();
@@ -344,13 +279,11 @@ export class UI {
         this._currentVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._pendingVmd = null;
 
-        // Start audio + animation at the same time
         this.animation.playing = true;
         try {
           await this.audio.audioElement.play();
           this._updatePlayPauseButton(true);
         } catch {
-          // Autoplay blocked — wait for first user interaction
           this.animation.playing = false;
           this._updatePlayPauseButton(false);
           const resume = () => {
@@ -364,7 +297,6 @@ export class UI {
           document.addEventListener('keydown', resume, { once: true });
         }
       } else {
-        // No mesh yet: store VMD for later, play audio immediately
         this._pendingVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._currentVmd = null;
         try {
@@ -372,10 +304,18 @@ export class UI {
           this._updatePlayPauseButton(true);
         } catch {
           this._updatePlayPauseButton(false);
+          const resume = () => {
+            this.audio.play();
+            this._updatePlayPauseButton(true);
+            document.removeEventListener('click', resume);
+            document.removeEventListener('keydown', resume);
+          };
+          document.addEventListener('click', resume, { once: true });
+          document.addEventListener('keydown', resume, { once: true });
         }
       }
     } catch (err) {
-      console.error('VMD manifest load error:', err);
+      console.error('VMD load error:', err);
     }
   }
 
@@ -526,7 +466,7 @@ export class UI {
 
     // Paths
     if (this._pmxPath) {
-      const pmxDisplay = this._zipName ? `${this._zipName}/${this._pmxPath}` : this._pmxPath;
+      const pmxDisplay = this._pmxPath;
       lines.push(`PMX: ${pmxDisplay}`);
     }
     if (this._vmdPath) {
@@ -542,7 +482,7 @@ export class UI {
     const el = document.getElementById('debug-info');
     const lines = [];
     if (this._pmxPath) {
-      const pmxDisplay = this._zipName ? `${this._zipName}/${this._pmxPath}` : this._pmxPath;
+      const pmxDisplay = this._pmxPath;
       lines.push(`PMX: ${pmxDisplay}`);
     }
     if (this._vmdPath) lines.push(`VMD: ${this._vmdPath}`);
