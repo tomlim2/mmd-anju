@@ -4,7 +4,7 @@ import { remapClipBones } from './bone-remap.js';
 import { validateClip } from './vmd-validator.js';
 import { retargetClip } from './bone-retarget.js';
 import { extractVmdMeta } from './vmd-meta.js';
-import { precomputeSparkEvents, precomputeFootEvents } from './effects/spark-precompute.js';
+import { precomputeEffectEvents } from './effects/spark-precompute.js';
 import { autoSizeIK } from './ik-sizing.js';
 
 export class UI {
@@ -28,6 +28,7 @@ export class UI {
     this._initPlayback();
     this._initTimeline();
     this._initFxSelectors();
+    this._initKeyboard();
     this._loadDefaultModel();
 
     this.audio.onEnded(() => this._playNextSample());
@@ -80,7 +81,7 @@ export class UI {
       statusEl.textContent = '';
     } catch (err) {
       console.error('Default model load error:', err);
-      statusEl.textContent = '';
+      statusEl.textContent = 'Model not found';
     }
   }
 
@@ -101,7 +102,8 @@ export class UI {
     for (const entry of this._pmxManifest) {
       const opt = document.createElement('option');
       opt.value = JSON.stringify(entry);
-      opt.textContent = entry.name;
+      const pct = entry.confidence != null ? `${entry.confidence}%` : '';
+      opt.textContent = `${entry.name} | ${entry.family} | ${pct}`;
       selectPmx.appendChild(opt);
     }
     selectPmx.disabled = false;
@@ -134,7 +136,8 @@ export class UI {
       statusEl.textContent = '';
     } catch (err) {
       console.error('PMX load error:', err);
-      statusEl.textContent = '';
+      statusEl.textContent = 'Load failed';
+      setTimeout(() => { if (statusEl.textContent === 'Load failed') statusEl.textContent = ''; }, 3000);
     }
   }
 
@@ -184,7 +187,8 @@ export class UI {
       statusEl.textContent = '';
     } catch (err) {
       console.error('ZIP PMX load error:', err);
-      statusEl.textContent = '';
+      statusEl.textContent = 'Load failed';
+      setTimeout(() => { if (statusEl.textContent === 'Load failed') statusEl.textContent = ''; }, 3000);
     }
   }
 
@@ -209,23 +213,26 @@ export class UI {
 
   // --- Sample Mode ---
 
-  _sampleSongs = [
-    { name: 'HIGHER', vmd: 'samples/vmd/higher/motion.vmd', audio: 'samples/vmd/higher/audio.mp3' },
-    { name: 'Your Affection', vmd: 'samples/vmd/your-affection/motion.vmd', audio: 'samples/vmd/your-affection/audio.mp3' },
-  ];
+  _sampleSongs = [];
   _sampleIndex = 0;
 
-  _initSampleMode() {
-    const artistSelect = document.getElementById('select-artist');
+  async _initSampleMode() {
     const songSelect = document.getElementById('select-song');
 
-    artistSelect.innerHTML = '<option value="sample" selected>Sample</option>';
+    try {
+      const res = await fetch('samples/vmd/manifest.json');
+      if (!res.ok) return;
+      this._sampleSongs = await res.json();
+    } catch { return; }
 
     songSelect.innerHTML = '<option value="">Song</option>';
     for (const song of this._sampleSongs) {
       const o = document.createElement('option');
-      o.value = JSON.stringify({ vmd: song.vmd, audio: song.audio });
-      o.textContent = song.name;
+      o.value = song.vmd;
+      const dur = this._formatTime(song.duration);
+      const warn = song.warnings?.length ? ' \u26A0' : '';
+      const model = song.model || '?';
+      o.textContent = `${song.name} | ${model} | ${song.score}% | ${dur}${warn}`;
       songSelect.appendChild(o);
     }
     songSelect.disabled = false;
@@ -233,23 +240,36 @@ export class UI {
     const sig = { signal: this._ac.signal };
     songSelect.addEventListener('change', async () => {
       if (!songSelect.value) return;
-      const { vmd, audio } = JSON.parse(songSelect.value);
-      await this._loadVMDFromPath(vmd, audio);
+      const song = this._sampleSongs.find(s => s.vmd === songSelect.value);
+      if (!song) return;
+      this._sampleIndex = this._sampleSongs.indexOf(song);
+      this._updateSongTitle(song.name);
+      await this._loadSampleSong(song);
     }, sig);
 
     // Auto-play first sample
     this._sampleIndex = 0;
     const first = this._sampleSongs[0];
-    songSelect.value = JSON.stringify({ vmd: first.vmd, audio: first.audio });
-    this._loadVMDFromPath(first.vmd, first.audio);
+    songSelect.value = first.vmd;
+    this._updateSongTitle(first.name);
+    this._loadSampleSong(first);
+  }
+
+  _loadSampleSong(song) {
+    return this._loadVMDFromPath(
+      'samples/vmd/' + song.vmd,
+      'samples/vmd/' + song.audio,
+    );
   }
 
   _playNextSample() {
+    if (!this._sampleSongs.length) return;
     this._sampleIndex = (this._sampleIndex + 1) % this._sampleSongs.length;
     const song = this._sampleSongs[this._sampleIndex];
     const songSelect = document.getElementById('select-song');
-    songSelect.value = JSON.stringify({ vmd: song.vmd, audio: song.audio });
-    this._loadVMDFromPath(song.vmd, song.audio);
+    songSelect.value = song.vmd;
+    this._updateSongTitle(song.name);
+    this._loadSampleSong(song);
   }
 
   async _loadVMDFromPath(vmdPath, audioPath) {
@@ -364,12 +384,7 @@ export class UI {
     // ④ IK sizing (body proportion retargeting)
     const sizing = autoSizeIK(clip, mesh, validation?.vmdFamily);
 
-    // ⑤ Precompute effect events
-    const wrists = ['左手首', '右手首'];
-    const motionEvents = precomputeSparkEvents(mesh, clip, wrists);
-    this.riseFx.setEvents(motionEvents);
-
-    // Check which bones the VMD actually keyframes
+    // ⑤ Precompute effect events (single mixer pass)
     const trackNames = new Set(clip.tracks.map(t => {
       const m = t.name.match(/\.bones\[(.+?)\]/);
       return m ? m[1] : t.name.replace(/\.(position|quaternion)$/, '');
@@ -377,21 +392,20 @@ export class UI {
     const boneMap = new Map();
     for (const bone of mesh.skeleton.bones) boneMap.set(bone.name, bone);
 
-    function pickFoot(side) {
-      const ik = side + '足ＩＫ';
-      if (boneMap.has(ik) && trackNames.has(ik)) return ik;
-      const toe = side + 'つま先';
-      if (boneMap.has(toe)) return toe;
-      return side + '足首';
+    function footCandidates(side) {
+      const cands = [];
+      for (const suffix of ['つま先', '足首', '足ＩＫ']) {
+        const name = side + suffix;
+        if (boneMap.has(name)) cands.push(name);
+      }
+      return cands;
     }
-    const footBones = [pickFoot('左'), pickFoot('右')];
-    const ikTracks = [...trackNames].filter(n => n.includes('足'));
-    const pmxFootBones = [...boneMap.keys()].filter(n => n.includes('足'));
-    console.log('[ripple] PMX foot bones:', pmxFootBones);
-    console.log('[ripple] VMD foot tracks:', ikTracks);
-    console.log('[ripple] selected:', footBones);
-    const footEvents = precomputeFootEvents(mesh, clip, footBones);
-    console.log('[ripple] events:', footEvents.length);
+    const footGroups = [footCandidates('左'), footCandidates('右')];
+
+    const { sparkEvents, footEvents } = precomputeEffectEvents(
+      mesh, clip, ['左手首', '右手首'], footGroups,
+    );
+    this.riseFx.setEvents(sparkEvents);
     this.rippleFx.setEvents(footEvents);
 
     this._showBoneDebug(remap, validation, retarget, sizing, vmdMeta);
@@ -465,12 +479,15 @@ export class UI {
     }
 
     // Paths
-    if (this._pmxPath) {
-      const pmxDisplay = this._pmxPath;
-      lines.push(`PMX: ${pmxDisplay}`);
-    }
-    if (this._vmdPath) {
-      lines.push(`VMD: ${this._vmdPath}`);
+    if (this._pmxPath) lines.push(`PMX: ${this._pmxPath}`);
+    if (this._vmdPath) lines.push(`VMD: ${this._vmdPath}`);
+
+    // VMD quality score breakdown
+    const song = this._sampleSongs[this._sampleIndex];
+    if (song) {
+      const warns = song.warnings?.length
+        ? `  <span class="drop">${song.warnings.join(', ')}</span>` : '';
+      lines.push(`<span class="score-dim">VMD Quality: ${song.score}%  [bones≤40  morphs≤25  groups≤20  source≤15]${warns}</span>`);
     }
 
     el.innerHTML = lines.length ? lines.join('<br>') : '';
@@ -531,6 +548,14 @@ export class UI {
       }
       if (v > 0) this._prevVolume = v;
     }, sig);
+
+    document.getElementById('btn-prev').addEventListener('click', () => {
+      this._playPrevSample();
+    }, sig);
+
+    document.getElementById('btn-next').addEventListener('click', () => {
+      this._playNextSample();
+    }, sig);
   }
 
   _updateMuteButton() {
@@ -547,12 +572,11 @@ export class UI {
   // --- Timeline Scrubber ---
 
   _initTimeline() {
-    this._tlTrack = document.getElementById('tl-track');
+    this._tlTrack = document.getElementById('timeline');
     this._tlFill = document.getElementById('tl-fill');
     this._tlThumb = document.getElementById('tl-thumb');
     this._tlCurrent = document.getElementById('tl-current');
     this._tlTotal = document.getElementById('tl-total');
-    this._tlContainer = document.getElementById('timeline');
     this._tlDragging = false;
     this._tlWasPlaying = false;
 
@@ -580,7 +604,7 @@ export class UI {
         this.animation.playing = false;
         this.audio.pause();
       }
-      this._tlContainer.classList.add('dragging');
+      this._tlTrack.classList.add('dragging');
       this._tlTrack.setPointerCapture(e.pointerId);
       seekFromEvent(e);
     };
@@ -593,7 +617,7 @@ export class UI {
     const onEnd = (e) => {
       if (!this._tlDragging) return;
       this._tlDragging = false;
-      this._tlContainer.classList.remove('dragging');
+      this._tlTrack.classList.remove('dragging');
       this._tlTrack.releasePointerCapture(e.pointerId);
       if (this._tlWasPlaying) {
         this.animation.playing = true;
@@ -619,39 +643,137 @@ export class UI {
   }
 
   _updateTimelineDisplay(time, duration) {
-    const FPS = 30;
     const ratio = duration > 0 ? time / duration : 0;
     this._tlFill.style.transform = `scaleX(${ratio})`;
     this._tlThumb.style.left = (ratio * 100) + '%';
-    this._tlCurrent.textContent = this._formatTimeline(time, FPS);
-    this._tlTotal.textContent = this._formatTimeline(duration, FPS);
+    this._tlCurrent.textContent = this._formatTime(time);
+    this._tlTotal.textContent = this._formatTime(duration);
   }
 
-  _formatTimeline(seconds, fps) {
+  _formatTime(seconds) {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
-    const f = Math.round(seconds * fps);
-    return `${m}:${String(s).padStart(2, '0')} f${f}`;
+    return `${m}:${String(s).padStart(2, '0')}`;
   }
 
   _initFxSelectors() {
     const sig = { signal: this._ac.signal };
 
-    document.getElementById('chk-rise').addEventListener('change', (e) => {
-      this.riseFx.enabled = e.target.checked;
-    }, sig);
+    // Toggle checkbox → effect enabled + panel section visibility
+    const fxMap = [
+      { chk: 'chk-rise', fx: this.riseFx, section: 'fx-rise' },
+      { chk: 'chk-fall', fx: this.fallFx, section: 'fx-fall' },
+      { chk: 'chk-ripple', fx: this.rippleFx, section: 'fx-ripple' },
+      { chk: 'chk-mirror', fx: this.mirrorFx, section: 'fx-mirror' },
+    ];
+    for (const { chk, fx, section } of fxMap) {
+      document.getElementById(chk).addEventListener('change', (e) => {
+        fx.enabled = e.target.checked;
+        document.getElementById(section).classList.toggle('active', e.target.checked);
+      }, sig);
+    }
 
-    document.getElementById('chk-fall').addEventListener('change', (e) => {
-      this.fallFx.enabled = e.target.checked;
-    }, sig);
+    // Wire slider ↔ number input pairs
+    const wireSlider = (rngId, valId, setter) => {
+      const rng = document.getElementById(rngId);
+      const val = document.getElementById(valId);
+      rng.addEventListener('input', () => {
+        const v = parseFloat(rng.value);
+        val.value = v;
+        setter(v);
+      }, sig);
+      val.addEventListener('change', () => {
+        let v = parseFloat(val.value) || parseFloat(rng.min);
+        v = Math.max(parseFloat(rng.min), Math.min(parseFloat(rng.max), v));
+        val.value = v;
+        rng.value = v;
+        setter(v);
+      }, sig);
+    };
 
-    document.getElementById('chk-ripple').addEventListener('change', (e) => {
-      this.rippleFx.enabled = e.target.checked;
-    }, sig);
+    // Rise
+    wireSlider('rng-rise-speed', 'val-rise-speed', (v) => { this.riseFx.speed = v; });
+    wireSlider('rng-rise-wind', 'val-rise-wind', (v) => { this.riseFx.wind = v; });
+    wireSlider('rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; });
 
-    document.getElementById('chk-mirror').addEventListener('change', (e) => {
-      this.mirrorFx.enabled = e.target.checked;
-    }, sig);
+    // Fall
+    wireSlider('rng-fall-speed', 'val-fall-speed', (v) => { this.fallFx.speed = v; });
+    wireSlider('rng-fall-size', 'val-fall-size', (v) => { this.fallFx.size = v; });
+
+    // Ripple
+    wireSlider('rng-ripple-radius', 'val-ripple-radius', (v) => { this.rippleFx.radius = v; });
+    wireSlider('rng-ripple-life', 'val-ripple-life', (v) => { this.rippleFx.life = v; });
+
+    // Mirror
+    wireSlider('rng-mirror-strength', 'val-mirror-strength', (v) => { this.mirrorFx.strength = v / 100; });
+  }
+
+  _updateSongTitle(name) {
+    const el = document.getElementById('song-title');
+    if (el) el.textContent = name || '';
+  }
+
+  _playPrevSample() {
+    if (!this._sampleSongs.length) return;
+    this._sampleIndex = (this._sampleIndex - 1 + this._sampleSongs.length) % this._sampleSongs.length;
+    const song = this._sampleSongs[this._sampleIndex];
+    const songSelect = document.getElementById('select-song');
+    songSelect.value = song.vmd;
+    this._updateSongTitle(song.name);
+    this._loadSampleSong(song);
+  }
+
+  _initKeyboard() {
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+      switch (e.code) {
+        case 'Space':
+          e.preventDefault();
+          document.getElementById('btn-playpause').click();
+          break;
+        case 'KeyM':
+          document.getElementById('btn-mute').click();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          this._seekRelative(-5);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          this._seekRelative(5);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          this._adjustVolume(0.1);
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          this._adjustVolume(-0.1);
+          break;
+        case 'KeyN':
+          this._playNextSample();
+          break;
+        case 'KeyP':
+          this._playPrevSample();
+          break;
+      }
+    }, { signal: this._ac.signal });
+  }
+
+  _seekRelative(delta) {
+    const time = Math.max(0, Math.min(this.audio.currentTime + delta, this.audio.duration));
+    this.animation.seekTo(time);
+    this.audio.seekTo(time);
+    this.riseFx.seekTo(time);
+    this.rippleFx.seekTo(time);
+  }
+
+  _adjustVolume(delta) {
+    const el = document.getElementById('volume');
+    const v = Math.max(0, Math.min(1, parseFloat(el.value) + delta));
+    el.value = v;
+    if (!this._muted) this.audio.setVolume(v);
+    if (v > 0) this._prevVolume = v;
   }
 
   destroy() {
