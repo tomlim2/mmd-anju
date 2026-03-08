@@ -30,7 +30,7 @@ const WIND_RISE_BOOST = 6.0;   // big upward surge on impulse
 const WIND_RADIUS = 10;        // effective impulse radius
 
 // Tunable defaults
-const DEFAULTS = { speed: RISE_SPEED_MAX, wind: WIND_STRENGTH, size: PLANE_SCALE };
+const DEFAULTS = { speed: RISE_SPEED_MAX, wind: WIND_STRENGTH, size: 0.1 };
 
 export class RisingLightEffect {
   static DEFAULTS = DEFAULTS;
@@ -82,7 +82,7 @@ export class RisingLightEffect {
     for (let i = 0; i < MAX; i++) {
       const i3 = i * 3;
       this._vec3.set(this._posArr[i3], this._posArr[i3 + 1], this._posArr[i3 + 2]);
-      this._scaleVec.set(PLANE_SCALE, PLANE_SCALE, PLANE_SCALE);
+      this._scaleVec.set(this._size, this._size, this._size);
       this._mat4.compose(this._vec3, initQ, this._scaleVec);
       this._mesh.setMatrixAt(i, this._mat4);
       this._mesh.setColorAt(i, white);

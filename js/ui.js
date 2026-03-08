@@ -251,16 +251,23 @@ export class UI {
     for (const song of this._sampleSongs) {
       const o = document.createElement('option');
       o.value = song.vmd;
-      o.textContent = song.name;
+      o.textContent = song.score < 35 ? `\u26A0 ${song.name}` : song.name;
+      if (song.score < 35) o.style.color = '#e06c75';
       songSelect.appendChild(o);
     }
     songSelect.disabled = false;
 
     const sig = { signal: this._ac.signal };
+    const syncSelectColor = () => {
+      const song = this._sampleSongs.find(s => s.vmd === songSelect.value);
+      songSelect.style.color = song && song.score < 35 ? '#e06c75' : '';
+    };
+
     songSelect.addEventListener('change', async () => {
       if (!songSelect.value) return;
       const song = this._sampleSongs.find(s => s.vmd === songSelect.value);
       if (!song) return;
+      syncSelectColor();
       this._sampleIndex = this._sampleSongs.indexOf(song);
       await this._loadSampleSong(song);
     }, sig);
@@ -269,6 +276,7 @@ export class UI {
     this._sampleIndex = 0;
     const first = this._sampleSongs[0];
     songSelect.value = first.vmd;
+    syncSelectColor();
     this._loadSampleSong(first);
   }
 
@@ -433,9 +441,8 @@ export class UI {
     const el = document.getElementById('debug-info');
     const lines = [];
     const scoreHtml = (pct) => {
-      const cls = pct >= 90 ? 'score-good' : pct >= 75 ? 'score-fair' : 'score-poor';
-      const lbl = pct >= 90 ? 'Good' : pct >= 75 ? 'Fair' : 'Poor';
-      return `<span class="${cls}">${pct}% ${lbl}</span>`;
+      if (pct < 75) return `<span class="score-poor">${pct}%</span>`;
+      return `${pct}%`;
     };
 
     // ── Section 1: VMD ──
@@ -444,7 +451,9 @@ export class UI {
       const target = song.model || vmdMeta?.modelName || '?';
       const reasons = song.warnings?.length
         ? `  <span class="warn">${song.warnings.join(', ')}</span>` : '';
-      lines.push(`<span class="meta">VMD</span>  ${song.name} · ${target} · ${scoreHtml(song.score)}${reasons}`);
+      const vmdLow = song.score < 35;
+      const vmdLine = `<span class="meta">VMD</span>  ${song.name} · ${target} · ${scoreHtml(song.score)}${reasons}`;
+      lines.push(vmdLow ? `<span class="score-poor">${vmdLine}</span>` : vmdLine);
     } else if (this._vmdPath) {
       const parts = this._vmdPath.split('/');
       const name = parts.length >= 2 ? parts[parts.length - 2] : parts[parts.length - 1];
