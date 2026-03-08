@@ -5,7 +5,7 @@ import {
   BufferGeometry,
   BufferAttribute,
 } from 'three/webgpu';
-import { float } from 'three/tsl';
+import { float, uniform } from 'three/tsl';
 
 const MAX = 128;
 const SPAWN_RANGE_X = 30;
@@ -17,10 +17,16 @@ const FALL_SPEED_MAX = 4.0;
 const LIFETIME = 4.0;
 const FADE_Y = -2;
 
+const DEFAULTS = { speed: FALL_SPEED_MAX, size: 2.5 };
+
 export class FallingLightEffect {
+  static DEFAULTS = DEFAULTS;
+
   constructor(scene) {
     this.scene = scene;
     this.enabled = true;
+    this._speed = DEFAULTS.speed;
+    this._sizeVal = DEFAULTS.size;
 
     this._posArr = new Float32Array(MAX * 3);
     this._speedArr = new Float32Array(MAX);
@@ -41,7 +47,8 @@ export class FallingLightEffect {
     mat.transparent = true;
     mat.blending = AdditiveBlending;
     mat.depthWrite = false;
-    mat.sizeNode = float(2.5);
+    this._sizeUniform = uniform(this._sizeVal);
+    mat.sizeNode = this._sizeUniform;
     mat.sizeAttenuation = true;
     mat.color.set(0xaaddff);
 
@@ -50,12 +57,17 @@ export class FallingLightEffect {
     this.scene.add(this._mesh);
   }
 
+  get speed() { return this._speed; }
+  set speed(v) { this._speed = v; }
+  get size() { return this._sizeVal; }
+  set size(v) { this._sizeVal = v; this._sizeUniform.value = v; }
+
   _respawn(i) {
     const i3 = i * 3;
     this._posArr[i3] = (Math.random() - 0.5) * SPAWN_RANGE_X;
     this._posArr[i3 + 1] = SPAWN_Y_MIN + Math.random() * (SPAWN_Y_MAX - SPAWN_Y_MIN);
     this._posArr[i3 + 2] = (Math.random() - 0.5) * SPAWN_RANGE_Z;
-    this._speedArr[i] = FALL_SPEED_MIN + Math.random() * (FALL_SPEED_MAX - FALL_SPEED_MIN);
+    this._speedArr[i] = FALL_SPEED_MIN + Math.random() * (this._speed - FALL_SPEED_MIN);
     this._ageArr[i] = 0;
   }
 

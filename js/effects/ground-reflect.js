@@ -1,5 +1,5 @@
 import { Mesh, PlaneGeometry, MeshBasicNodeMaterial } from 'three/webgpu';
-import { reflector, positionView, smoothstep, float, color } from 'three/tsl';
+import { reflector, positionView, smoothstep, float, uniform } from 'three/tsl';
 
 export class GroundReflectEffect {
   constructor(scene) {
@@ -9,12 +9,16 @@ export class GroundReflectEffect {
 
     const reflect = reflector();
     const depth = positionView.z.negate();
-    const fade = smoothstep(float(25.0), float(5.0), depth);
+    this._strength = uniform(0.4);
+    const opacity = smoothstep(float(20.0), float(80.0), depth).mul(this._strength);
     const mat = new MeshBasicNodeMaterial();
-    mat.colorNode = color(0x111111).mix(reflect, fade);
+    mat.transparent = true;
+    mat.colorNode = reflect;
+    mat.opacityNode = opacity;
 
     this._mesh = new Mesh(geo, mat);
     this._mesh.rotateX(-Math.PI / 2);
+    this._mesh.renderOrder = -1;
     this._mesh.add(reflect.target);
 
     this.scene.add(this._mesh);
@@ -22,6 +26,9 @@ export class GroundReflectEffect {
 
   get enabled() { return this._mesh.visible; }
   set enabled(v) { this._mesh.visible = v; }
+
+  get strength() { return this._strength.value; }
+  set strength(v) { this._strength.value = v; }
 
   dispose() {
     this.scene.remove(this._mesh);

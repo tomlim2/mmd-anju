@@ -276,16 +276,18 @@
       margin-left: 10px;
     }
 
-    /* ── Debug info ── */
-    #debug-info {
+    /* ── Debug panel ── */
+    #debug-panel {
       position: fixed;
       top: 48px;
       left: 12px;
       max-width: 450px;
+      z-index: 20;
+    }
+    #debug-info {
       font-size: 11px;
       font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
       color: var(--text-dim);
-      z-index: 20;
       line-height: 1.6;
       user-select: text;
       word-break: break-word;
@@ -356,13 +358,18 @@
       font-size: 11px;
       user-select: none;
     }
-    #fx-panel-title {
+    #fx-panel-title, #debug-title {
       font-size: 10px;
       font-weight: 600;
       color: var(--text-dim);
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-bottom: 6px;
+    }
+    .fx-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
     .fx-section { display: none; margin-bottom: 8px; }
     .fx-section.active { display: block; }
@@ -377,20 +384,47 @@
       letter-spacing: 0.5px;
       margin-bottom: 4px;
     }
-    .fx-copy {
-      background: none;
+    .fx-btn {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
       border: none;
+      border-radius: var(--radius-sm);
       color: var(--text-dim);
       cursor: pointer;
-      font-size: 10px;
-      padding: 0 2px;
-      line-height: 1;
+      padding: 0;
       opacity: 0;
-      transition: opacity 0.15s, color 0.15s;
+      transition: opacity 0.15s, background 0.12s, color 0.12s;
     }
-    .fx-section:hover .fx-copy { opacity: 1; }
-    .fx-copy:hover { color: var(--accent); }
-    .fx-copy.copied { color: #98c379; opacity: 1; }
+    .fx-section:hover .fx-btn,
+    .fx-panel-header:hover .fx-btn { opacity: 1; }
+    .fx-btn:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+    .fx-btn.copied { color: #98c379; opacity: 1; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 14px;
+      font-size: 11px;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+    }
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
     .fx-section .slider { height: 20px; }
     .fx-section .slider-label { min-width: 40px; }
   </style>
@@ -413,33 +447,39 @@
     <label><input type="checkbox" id="chk-mirror" checked> Mirror</label>
   </div>
 
-  <div id="debug-info"></div>
+  <div id="debug-panel">
+    <div id="debug-title">MMD Debug</div>
+    <div id="debug-info"></div>
+  </div>
 
-  <!-- FX Debug Panel -->
+  <!-- FX Controller Panel -->
   <div id="fx-panel">
-    <div id="fx-panel-title">FX</div>
+    <div id="fx-panel-title" class="fx-panel-header">FX Controller
+      <button class="fx-btn" id="fx-copy-all" title="Copy all FX"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button>
+      <button class="fx-btn" id="fx-paste-all" title="Paste all FX"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h167q11-35 43-57.5t70-22.5q40 0 71.5 22.5T594-840h166q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560h-80v120H280v-120h-80v560Zm280-560q17 0 28.5-11.5T520-800q0-17-11.5-28.5T480-840q-17 0-28.5 11.5T440-800q0 17 11.5 28.5T480-760Z"/></svg></button>
+    </div>
 
     <div class="fx-section active" id="fx-rise">
-      <div class="fx-section-title">Rise <button class="fx-copy" data-fx="rise" title="Copy JSON">&#x2398;</button></div>
+      <div class="fx-section-title">Rise <button class="fx-btn fx-copy" data-fx="rise" title="Copy JSON"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button></div>
       <div class="slider"><span class="slider-label">Speed</span><input class="slider-track" type="range" id="rng-rise-speed" min="0.5" max="8" step="0.1" value="4"><input type="number" class="slider-val" id="val-rise-speed" value="4.0" min="0.5" max="8" step="0.1"></div>
       <div class="slider"><span class="slider-label">Wind</span><input class="slider-track" type="range" id="rng-rise-wind" min="0" max="40" step="1" value="18"><input type="number" class="slider-val" id="val-rise-wind" value="18" min="0" max="40" step="1"></div>
-      <div class="slider"><span class="slider-label">Size</span><input class="slider-track" type="range" id="rng-rise-size" min="0.1" max="2" step="0.05" value="0.5"><input type="number" class="slider-val" id="val-rise-size" value="0.50" min="0.1" max="2" step="0.05"></div>
+      <div class="slider"><span class="slider-label">Size</span><input class="slider-track" type="range" id="rng-rise-size" min="0.1" max="2" step="0.05" value="0.1"><input type="number" class="slider-val" id="val-rise-size" value="0.10" min="0.1" max="2" step="0.05"></div>
     </div>
 
     <div class="fx-section" id="fx-fall">
-      <div class="fx-section-title">Fall <button class="fx-copy" data-fx="fall" title="Copy JSON">&#x2398;</button></div>
+      <div class="fx-section-title">Fall <button class="fx-btn fx-copy" data-fx="fall" title="Copy JSON"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button></div>
       <div class="slider"><span class="slider-label">Speed</span><input class="slider-track" type="range" id="rng-fall-speed" min="0.5" max="8" step="0.1" value="4"><input type="number" class="slider-val" id="val-fall-speed" value="4.0" min="0.5" max="8" step="0.1"></div>
       <div class="slider"><span class="slider-label">Size</span><input class="slider-track" type="range" id="rng-fall-size" min="0.5" max="8" step="0.1" value="2.5"><input type="number" class="slider-val" id="val-fall-size" value="2.5" min="0.5" max="8" step="0.1"></div>
     </div>
 
     <div class="fx-section active" id="fx-ripple">
-      <div class="fx-section-title">Ripple <button class="fx-copy" data-fx="ripple" title="Copy JSON">&#x2398;</button></div>
+      <div class="fx-section-title">Ripple <button class="fx-btn fx-copy" data-fx="ripple" title="Copy JSON"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button></div>
       <div class="slider"><span class="slider-label">Radius</span><input class="slider-track" type="range" id="rng-ripple-radius" min="1" max="25" step="0.5" value="10"><input type="number" class="slider-val" id="val-ripple-radius" value="10.0" min="1" max="25" step="0.5"></div>
       <div class="slider"><span class="slider-label">Life</span><input class="slider-track" type="range" id="rng-ripple-life" min="0.3" max="4" step="0.1" value="1.4"><input type="number" class="slider-val" id="val-ripple-life" value="1.40" min="0.3" max="4" step="0.1"></div>
     </div>
 
     <div class="fx-section active" id="fx-mirror">
-      <div class="fx-section-title">Mirror <button class="fx-copy" data-fx="mirror" title="Copy JSON">&#x2398;</button></div>
+      <div class="fx-section-title">Mirror <button class="fx-btn fx-copy" data-fx="mirror" title="Copy JSON"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button></div>
       <div class="slider"><span class="slider-label">Reflect</span><input class="slider-track" type="range" id="rng-mirror-strength" min="0" max="100" step="1" value="40"><input type="number" class="slider-val" id="val-mirror-strength" value="40" min="0" max="100" step="1"></div>
     </div>
   </div>

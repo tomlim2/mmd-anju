@@ -13,7 +13,7 @@ import {
 const MAX = 512;
 const SPAWN_RANGE_X = 160;
 const SPAWN_RANGE_Z = 160;
-const SPAWN_Y_MIN = -2;
+const SPAWN_Y_MIN = 0;
 const SPAWN_Y_MAX = 5;
 const RISE_SPEED_MIN = 1.5;
 const RISE_SPEED_MAX = 4.0;
@@ -29,11 +29,19 @@ const WIND_STRENGTH = 18.0;    // strong horizontal push
 const WIND_RISE_BOOST = 6.0;   // big upward surge on impulse
 const WIND_RADIUS = 10;        // effective impulse radius
 
+// Tunable defaults
+const DEFAULTS = { speed: RISE_SPEED_MAX, wind: WIND_STRENGTH, size: PLANE_SCALE };
+
 export class RisingLightEffect {
+  static DEFAULTS = DEFAULTS;
+
   constructor(scene, camera) {
     this.scene = scene;
     this._camera = camera;
     this.enabled = true;
+    this._speed = DEFAULTS.speed;
+    this._wind = DEFAULTS.wind;
+    this._size = DEFAULTS.size;
 
     this._posArr = new Float32Array(MAX * 3);
     this._velArr = new Float32Array(MAX * 3); // per-particle velocity (x, y, z)
@@ -83,6 +91,13 @@ export class RisingLightEffect {
     this.scene.add(this._mesh);
   }
 
+  get speed() { return this._speed; }
+  set speed(v) { this._speed = v; }
+  get wind() { return this._wind; }
+  set wind(v) { this._wind = v; }
+  get size() { return this._size; }
+  set size(v) { this._size = v; }
+
   setEvents(events) {
     this._events = events;
     this.resetTime();
@@ -114,7 +129,7 @@ export class RisingLightEffect {
     this._posArr[i3] = (Math.random() - 0.5) * SPAWN_RANGE_X;
     this._posArr[i3 + 1] = SPAWN_Y_MIN + Math.random() * (SPAWN_Y_MAX - SPAWN_Y_MIN);
     this._posArr[i3 + 2] = (Math.random() - 0.5) * SPAWN_RANGE_Z;
-    this._baseSpeed[i] = RISE_SPEED_MIN + Math.random() * (RISE_SPEED_MAX - RISE_SPEED_MIN);
+    this._baseSpeed[i] = RISE_SPEED_MIN + Math.random() * (this._speed - RISE_SPEED_MIN);
     this._velArr[i3] = 0;
     this._velArr[i3 + 1] = 0;
     this._velArr[i3 + 2] = 0;
@@ -147,9 +162,11 @@ export class RisingLightEffect {
       // Sharp falloff in 3D — 1/(1+(d/r)^4)
       const r = dist / WIND_RADIUS;
       const falloff = 1 / (1 + r * r * r * r);
-      velArr[i3] += dirX * WIND_STRENGTH * falloff;
-      velArr[i3 + 1] += WIND_RISE_BOOST * falloff;
-      velArr[i3 + 2] += dirZ * WIND_STRENGTH * falloff;
+      const ws = this._wind;
+      const wb = WIND_RISE_BOOST * (ws / WIND_STRENGTH);
+      velArr[i3] += dirX * ws * falloff;
+      velArr[i3 + 1] += wb * falloff;
+      velArr[i3 + 2] += dirZ * ws * falloff;
     }
   }
 
@@ -213,7 +230,8 @@ export class RisingLightEffect {
 
       // Billboard matrix: face camera, uniform scale
       this._vec3.set(posArr[i3], posArr[i3 + 1], posArr[i3 + 2]);
-      this._scaleVec.set(PLANE_SCALE, PLANE_SCALE, PLANE_SCALE);
+      const ps = this._size;
+      this._scaleVec.set(ps, ps, ps);
       this._mat4.compose(this._vec3, camQ, this._scaleVec);
       this._mesh.setMatrixAt(i, this._mat4);
     }

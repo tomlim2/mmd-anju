@@ -768,22 +768,108 @@ export class UI {
     // Mirror
     wireSlider('rng-mirror-strength', 'val-mirror-strength', (v) => { this.mirrorFx.strength = v / 100; });
 
-    // Copy JSON buttons
+    // SVG icon markup
+    const copySvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>';
+    const checkSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg>';
+
+    const flashCopied = (btn) => {
+      btn.classList.add('copied');
+      btn.innerHTML = checkSvg;
+      setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = copySvg; }, 1200);
+    };
+
+    // FX param getters & setters
     const fxParams = {
       rise: () => ({ speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size }),
       fall: () => ({ speed: this.fallFx.speed, size: this.fallFx.size }),
       ripple: () => ({ radius: this.rippleFx.radius, life: this.rippleFx.life }),
       mirror: () => ({ strength: this.mirrorFx.strength }),
     };
+
+    const sliderMap = {
+      rise:   { speed: ['rng-rise-speed', 'val-rise-speed', (v) => { this.riseFx.speed = v; }],
+                wind:  ['rng-rise-wind', 'val-rise-wind', (v) => { this.riseFx.wind = v; }],
+                size:  ['rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; }] },
+      fall:   { speed: ['rng-fall-speed', 'val-fall-speed', (v) => { this.fallFx.speed = v; }],
+                size:  ['rng-fall-size', 'val-fall-size', (v) => { this.fallFx.size = v; }] },
+      ripple: { radius: ['rng-ripple-radius', 'val-ripple-radius', (v) => { this.rippleFx.radius = v; }],
+                life:   ['rng-ripple-life', 'val-ripple-life', (v) => { this.rippleFx.life = v; }] },
+      mirror: { strength: ['rng-mirror-strength', 'val-mirror-strength', (v) => { this.mirrorFx.strength = v / 100; }] },
+    };
+
+    const applyFxValues = (section, data) => {
+      const map = sliderMap[section];
+      if (!map) return false;
+      let applied = false;
+      for (const [key, [rngId, valId, setter]] of Object.entries(map)) {
+        const v = data[key];
+        if (v == null) continue;
+        const rng = document.getElementById(rngId);
+        const val = document.getElementById(valId);
+        rng.value = v;
+        val.value = v;
+        setter(v);
+        applied = true;
+      }
+      return applied;
+    };
+
+    // Per-section copy buttons
     for (const btn of document.querySelectorAll('.fx-copy')) {
       btn.addEventListener('click', async () => {
         const data = fxParams[btn.dataset.fx]();
         await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-        btn.classList.add('copied');
-        btn.textContent = '\u2713';
-        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '\u2398'; }, 1200);
+        flashCopied(btn);
       }, sig);
     }
+
+    // Copy all FX
+    document.getElementById('fx-copy-all')?.addEventListener('click', async () => {
+      const all = {};
+      for (const [key, getter] of Object.entries(fxParams)) all[key] = getter();
+      await navigator.clipboard.writeText(JSON.stringify(all, null, 2));
+      this._showToast('FX copied');
+      flashCopied(document.getElementById('fx-copy-all'));
+    }, sig);
+
+    // Paste all FX
+    document.getElementById('fx-paste-all')?.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        const data = JSON.parse(text);
+        let applied = false;
+        // Try as all-FX object { rise: {...}, fall: {...}, ... }
+        for (const [section, values] of Object.entries(data)) {
+          if (typeof values === 'object' && sliderMap[section]) {
+            applyFxValues(section, values);
+            applied = true;
+          }
+        }
+        // Try as single-section object { speed: 4, wind: 18, ... }
+        if (!applied) {
+          for (const section of Object.keys(sliderMap)) {
+            if (applyFxValues(section, data)) { applied = true; break; }
+          }
+        }
+        this._showToast(applied ? 'FX pasted' : 'No matching FX data');
+      } catch {
+        this._showToast('Paste failed — invalid JSON or clipboard denied');
+      }
+    }, sig);
+  }
+
+  _showToast(message) {
+    clearTimeout(this._toastTimer);
+    let toast = document.getElementById('mmd-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'mmd-toast';
+      toast.className = 'toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('visible');
+    this._toastTimer = setTimeout(() => toast.classList.remove('visible'), 2500);
   }
 
   _playPrevSample() {

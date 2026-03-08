@@ -17,12 +17,18 @@ const SPEED_LOW = 5;           // gentle step — minimum ripple
 const SPEED_HIGH = 40;         // hard jump landing — full ripple
 const RING_THICK = 0.06;       // ring width as fraction of outer radius
 
+const DEFAULTS = { radius: MAX_RADIUS, life: LIFETIME };
+
 export class FootRippleEffect {
+  static DEFAULTS = DEFAULTS;
+
   constructor(scene) {
     this.scene = scene;
     this.enabled = true;
+    this._maxRadius = DEFAULTS.radius;
+    this._lifetime = DEFAULTS.life;
 
-    this._ageArr = new Float32Array(MAX).fill(LIFETIME);
+    this._ageArr = new Float32Array(MAX).fill(this._lifetime + 1);
     this._posArr = new Float32Array(MAX * 3);
     this._radiusArr = new Float32Array(MAX);   // per-ripple max radius
     this._nextSlot = 0;
@@ -57,6 +63,11 @@ export class FootRippleEffect {
     this.scene.add(this._mesh);
   }
 
+  get radius() { return this._maxRadius; }
+  set radius(v) { this._maxRadius = v; }
+  get life() { return this._lifetime; }
+  set life(v) { this._lifetime = v; }
+
   setEvents(events) {
     this._events = events;
     this._nextIdx = 0;
@@ -64,7 +75,7 @@ export class FootRippleEffect {
 
   resetTime() {
     this._nextIdx = 0;
-    this._ageArr.fill(LIFETIME);
+    this._ageArr.fill(this._lifetime + 1);
   }
 
   seekTo(time) {
@@ -75,7 +86,7 @@ export class FootRippleEffect {
       else hi = mid;
     }
     this._nextIdx = lo;
-    this._ageArr.fill(LIFETIME);
+    this._ageArr.fill(this._lifetime + 1);
   }
 
   _spawn(x, z, speed) {
@@ -86,7 +97,7 @@ export class FootRippleEffect {
     this._posArr[i3 + 1] = 0.02;
     this._posArr[i3 + 2] = z;
     const t = Math.min(1, Math.max(0, (speed - SPEED_LOW) / (SPEED_HIGH - SPEED_LOW)));
-    this._radiusArr[i] = MIN_RADIUS + t * (MAX_RADIUS - MIN_RADIUS);
+    this._radiusArr[i] = MIN_RADIUS + t * (this._maxRadius - MIN_RADIUS);
     this._ageArr[i] = 0;
   }
 
@@ -111,12 +122,12 @@ export class FootRippleEffect {
       this._ageArr[i] += dt;
       const i3 = i * 3;
 
-      if (this._ageArr[i] >= LIFETIME) {
+      if (this._ageArr[i] >= this._lifetime) {
         this._vec3.set(0, -10, 0);
         this._scaleVec.set(0, 0, 0);
         this._color.setRGB(0, 0, 0);
       } else {
-        const t = this._ageArr[i] / LIFETIME;
+        const t = this._ageArr[i] / this._lifetime;
         const radius = this._radiusArr[i];
         const scale = radius * (1 - (1 - t) * (1 - t));       // ease-out
         const fade = (1 - t) * (1 - t);                        // quadratic fade
