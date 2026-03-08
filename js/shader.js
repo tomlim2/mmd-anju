@@ -4,23 +4,24 @@ import {
   RedFormat,
   NearestFilter,
   Color,
+  Vector3,
 } from 'three/webgpu';
 import {
   Fn,
   uniform,
   normalView,
-  positionView,
-  float,
   dot,
   normalize,
-  pow,
   clamp,
+  step,
+  mix,
+  texture,
 } from 'three/tsl';
 
 /**
- * Create a 3-band toon gradient texture.
+ * Create a 2-band toon gradient texture (light/dark hard boundary).
  */
-function createGradientMap(bands = 3) {
+function createGradientMap(bands = 2) {
   const size = bands;
   const data = new Uint8Array(size);
   for (let i = 0; i < size; i++) {
@@ -37,32 +38,32 @@ function createGradientMap(bands = 3) {
  * Swap MMDLoader's ShaderMaterial to MeshToonNodeMaterial with TSL toon shading.
  */
 export function swapToToonMaterial(mesh) {
-  const gradientMap = createGradientMap(4);
+  const gradientMap = createGradientMap(2);
   const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+  const lightDir = uniform(new Vector3(0.5, 1.0, 0.75).normalize());
+  const shadowTint = uniform(new Color(0.82, 0.75, 0.92));
+  const threshold = uniform(0.5);
 
   const swapped = materials.map((mat) => {
     const toon = new MeshToonNodeMaterial();
     toon.gradientMap = gradientMap;
 
     // Transfer base properties
-    if (mat.map) toon.map = mat.map;
-    if (mat.color) toon.color.copy(mat.color);
     toon.side = mat.side;
     toon.transparent = mat.transparent;
     toon.opacity = mat.opacity;
 
-    // TSL rim lighting
-    const rimColor = uniform(new Color(0x88ccff));
-    const rimPower = uniform(3.0);
-    const rimStrength = uniform(0.4);
+    // Anime shadow color tint — texture sampled inside colorNode
+    const baseColor = uniform(mat.color || new Color(1, 1, 1));
+    const mapTex = mat.map;
 
-    toon.emissiveNode = Fn(() => {
-      // Both normalView and positionView are in view space
-      const viewDir = normalize(positionView.negate());
-      const ndotv = clamp(dot(normalView, viewDir), 0.0, 1.0);
-      const rimFactor = float(1.0).sub(ndotv);
-      const rim = pow(rimFactor, rimPower).mul(rimStrength);
-      return rimColor.mul(rim);
+    toon.colorNode = Fn(() => {
+      let color = baseColor;
+      if (mapTex) color = color.mul(texture(mapTex).rgb);
+      const ndotl = clamp(dot(normalView, normalize(lightDir)), 0.0, 1.0);
+      const lit = step(threshold, ndotl);
+      return mix(color.mul(shadowTint), color, lit);
     })();
 
     mat.dispose();
