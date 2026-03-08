@@ -765,6 +765,7 @@ export class UI {
     wireSlider('rng-rise-speed', 'val-rise-speed', (v) => { this.riseFx.speed = v; });
     wireSlider('rng-rise-wind', 'val-rise-wind', (v) => { this.riseFx.wind = v; });
     wireSlider('rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; });
+    wireSlider('rng-rise-life', 'val-rise-life', (v) => { this.riseFx.life = v; });
 
     // Fall
     wireSlider('rng-fall-speed', 'val-fall-speed', (v) => { this.fallFx.speed = v; });
@@ -789,7 +790,7 @@ export class UI {
 
     // FX param getters & setters
     const fxParams = {
-      rise: () => ({ speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size }),
+      rise: () => ({ speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size, life: this.riseFx.life }),
       fall: () => ({ speed: this.fallFx.speed, size: this.fallFx.size }),
       ripple: () => ({ radius: this.rippleFx.radius, life: this.rippleFx.life }),
       mirror: () => ({ strength: this.mirrorFx.strength }),
@@ -798,7 +799,8 @@ export class UI {
     const sliderMap = {
       rise:   { speed: ['rng-rise-speed', 'val-rise-speed', (v) => { this.riseFx.speed = v; }],
                 wind:  ['rng-rise-wind', 'val-rise-wind', (v) => { this.riseFx.wind = v; }],
-                size:  ['rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; }] },
+                size:  ['rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; }],
+                life:  ['rng-rise-life', 'val-rise-life', (v) => { this.riseFx.life = v; }] },
       fall:   { speed: ['rng-fall-speed', 'val-fall-speed', (v) => { this.fallFx.speed = v; }],
                 size:  ['rng-fall-size', 'val-fall-size', (v) => { this.fallFx.size = v; }] },
       ripple: { radius: ['rng-ripple-radius', 'val-ripple-radius', (v) => { this.rippleFx.radius = v; }],

@@ -30,7 +30,7 @@ const WIND_RISE_BOOST = 6.0;   // big upward surge on impulse
 const WIND_RADIUS = 10;        // effective impulse radius
 
 // Tunable defaults
-const DEFAULTS = { speed: 0.5, wind: WIND_STRENGTH, size: 0.1 };
+const DEFAULTS = { speed: 0.5, wind: WIND_STRENGTH, size: 0.1, life: LIFETIME };
 
 export class RisingLightEffect {
   static DEFAULTS = DEFAULTS;
@@ -42,6 +42,7 @@ export class RisingLightEffect {
     this._speed = DEFAULTS.speed;
     this._wind = DEFAULTS.wind;
     this._size = DEFAULTS.size;
+    this._life = DEFAULTS.life;
 
     this._posArr = new Float32Array(MAX * 3);
     this._velArr = new Float32Array(MAX * 3); // per-particle velocity (x, y, z)
@@ -61,7 +62,7 @@ export class RisingLightEffect {
     // Stagger initial spawns
     for (let i = 0; i < MAX; i++) {
       this._respawn(i);
-      this._ageArr[i] = Math.random() * LIFETIME;
+      this._ageArr[i] = Math.random() * this._life;
       this._posArr[i * 3 + 1] += this._baseSpeed[i] * this._ageArr[i];
     }
 
@@ -97,6 +98,8 @@ export class RisingLightEffect {
   set wind(v) { this._wind = v; }
   get size() { return this._size; }
   set size(v) { this._size = v; }
+  get life() { return this._life; }
+  set life(v) { this._life = v; }
 
   setEvents(events) {
     this._events = events;
@@ -108,7 +111,7 @@ export class RisingLightEffect {
     this._velArr.fill(0);
     for (let i = 0; i < MAX; i++) {
       this._respawn(i);
-      this._ageArr[i] = Math.random() * LIFETIME;
+      this._ageArr[i] = Math.random() * this._life;
       this._posArr[i * 3 + 1] += this._baseSpeed[i] * this._ageArr[i];
     }
   }
@@ -194,7 +197,7 @@ export class RisingLightEffect {
       this._ageArr[i] += dt;
       const i3 = i * 3;
 
-      if (this._ageArr[i] >= LIFETIME || posArr[i3 + 1] > FADE_Y) {
+      if (this._ageArr[i] >= this._life || posArr[i3 + 1] > FADE_Y) {
         this._respawn(i);
       } else {
         // Decay per-particle velocity
@@ -212,13 +215,13 @@ export class RisingLightEffect {
       }
 
       // Fade: in + out + Y-based (min wins)
-      const fadeInEnd = LIFETIME * FADE_RATIO;
-      const fadeOutStart = LIFETIME * (1 - FADE_RATIO);
+      const fadeInEnd = this._life * FADE_RATIO;
+      const fadeOutStart = this._life * (1 - FADE_RATIO);
       let fade = 1;
       if (this._ageArr[i] < fadeInEnd) {
         fade = Math.min(fade, this._ageArr[i] / fadeInEnd);
       } else if (this._ageArr[i] > fadeOutStart) {
-        fade = Math.min(fade, 1 - (this._ageArr[i] - fadeOutStart) / (LIFETIME - fadeOutStart));
+        fade = Math.min(fade, 1 - (this._ageArr[i] - fadeOutStart) / (this._life - fadeOutStart));
       }
       const y = posArr[i3 + 1];
       if (y > Y_FADE_START) {

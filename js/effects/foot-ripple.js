@@ -17,7 +17,7 @@ const SPEED_LOW = 5;           // gentle step — minimum ripple
 const SPEED_HIGH = 40;         // hard jump landing — full ripple
 const RING_THICK = 0.06;       // ring width as fraction of outer radius
 
-const DEFAULTS = { radius: MAX_RADIUS, life: LIFETIME };
+const DEFAULTS = { radius: 8.5, life: 1.3 };
 
 export class FootRippleEffect {
   static DEFAULTS = DEFAULTS;
