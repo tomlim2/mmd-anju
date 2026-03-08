@@ -409,8 +409,12 @@ export class UI {
     for (const bone of mesh.skeleton.bones) boneMap.set(bone.name, bone);
 
     function footCandidates(side) {
+      // Prefer 足ＩＫ — its VMD keyframes give correct positions without IK solving.
+      // FK bones (つま先, 足首) need IK solving which precompute doesn't do.
+      const ik = side + '足ＩＫ';
+      if (boneMap.has(ik)) return [ik];
       const cands = [];
-      for (const suffix of ['つま先', '足首', '足ＩＫ']) {
+      for (const suffix of ['つま先', '足首']) {
         const name = side + suffix;
         if (boneMap.has(name)) cands.push(name);
       }
@@ -418,17 +422,18 @@ export class UI {
     }
     const footGroups = [footCandidates('左'), footCandidates('右')];
 
-    const { sparkEvents, footEvents } = precomputeEffectEvents(
+    const { sparkEvents, footEvents, footDiag } = precomputeEffectEvents(
       mesh, clip, ['左手首', '右手首'], footGroups,
     );
     this.riseFx.setEvents(sparkEvents);
     this.rippleFx.setEvents(footEvents);
 
-    this._showBoneDebug(remap, validation, retarget, sizing, vmdMeta);
+    const fxInfo = { sparkCount: sparkEvents.length, footCount: footEvents.length, footGroups, footDiag, footEvents };
+    this._showBoneDebug(remap, validation, retarget, sizing, vmdMeta, fxInfo);
     return { remap, validation, retarget, sizing };
   }
 
-  _showBoneDebug({ remapped, dropped, ignored }, validation, retarget, sizing, vmdMeta) {
+  _showBoneDebug({ remapped, dropped, ignored }, validation, retarget, sizing, vmdMeta, fxInfo) {
     const el = document.getElementById('debug-info');
     const lines = [];
     const scoreHtml = (pct) => {
@@ -484,7 +489,7 @@ export class UI {
       const bonePart = `${boneMatch.matched}/${boneMatch.total} bones`;
       const morphPart = morphMatch ? ` · ${morphMatch.matched}/${morphMatch.total} morphs` : '';
       const sizePart = sizing ? ` · <span class="ratio">×${sizing.legRatio.toFixed(2)}</span>` : '';
-      lines.push(`${scoreHtml(score)}  <span class="detail">${bonePart}${morphPart}${sizePart}</span>`);
+      lines.push(`<span class="meta">VMD/PMX</span>  ${scoreHtml(score)}  <span class="detail">${bonePart}${morphPart}${sizePart}</span>`);
 
       // Reasons for low score
       const warns = [];
@@ -515,6 +520,28 @@ export class UI {
         warns.push(`<span class="warn">${validation.translationWarns.length} large translation${validation.translationWarns.length > 1 ? 's' : ''}</span>`);
       }
       if (warns.length) lines.push(warns.join(' · '));
+    }
+
+    // ── Section 4: FX Precompute ──
+    if (fxInfo) {
+      const parts = [];
+      parts.push(`${fxInfo.sparkCount} spark`);
+      const footCls = fxInfo.footCount === 0 ? 'warn' : 'detail';
+      parts.push(`<span class="${footCls}">${fxInfo.footCount} ripple</span>`);
+      if (fxInfo.footEvents?.length) {
+        const first = fxInfo.footEvents[0].time.toFixed(1);
+        const last = fxInfo.footEvents[fxInfo.footEvents.length - 1].time.toFixed(1);
+        parts.push(`<span class="meta">${first}s~${last}s</span>`);
+      }
+      lines.push(`<span class="meta">FX</span>  ${parts.join(' · ')}`);
+
+      // Per-foot diagnostics
+      if (fxInfo.footDiag?.length) {
+        for (const d of fxInfo.footDiag) {
+          const cls = d.events === 0 ? 'warn' : 'detail';
+          lines.push(`<span class="meta">${d.bone}</span>  <span class="${cls}">${d.events} hits</span> · <span class="meta">ground=${d.groundY} thr=${d.threshold} Y=${d.yRange[0]}~${d.yRange[1]}</span>`);
+        }
+      }
     }
 
     // Console-only details
@@ -744,6 +771,23 @@ export class UI {
 
     // Mirror
     wireSlider('rng-mirror-strength', 'val-mirror-strength', (v) => { this.mirrorFx.strength = v / 100; });
+
+    // Copy JSON buttons
+    const fxParams = {
+      rise: () => ({ speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size }),
+      fall: () => ({ speed: this.fallFx.speed, size: this.fallFx.size }),
+      ripple: () => ({ radius: this.rippleFx.radius, life: this.rippleFx.life }),
+      mirror: () => ({ strength: this.mirrorFx.strength }),
+    };
+    for (const btn of document.querySelectorAll('.fx-copy')) {
+      btn.addEventListener('click', async () => {
+        const data = fxParams[btn.dataset.fx]();
+        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+        btn.classList.add('copied');
+        btn.textContent = '\u2713';
+        setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '\u2398'; }, 1200);
+      }, sig);
+    }
   }
 
   _playPrevSample() {

@@ -105,6 +105,7 @@ export function precomputeEffectEvents(mesh, clip, sparkBoneNames, footBoneGroup
 
   // ── Select best foot bone per group (largest Y range) & detect events ──
   const footEvents = [];
+  const footDiag = [];      // per-group diagnostics
   const footOffset = sparkEntries.length;
   for (const { start, count } of groupBounds) {
     if (count === 0) continue;
@@ -124,7 +125,8 @@ export function precomputeEffectEvents(mesh, clip, sparkBoneNames, footBoneGroup
     }
 
     const sel = start + bestIdx;
-    console.log(`[ripple] → ${footCandEntries[sel].name}`);
+    const selName = footCandEntries[sel].name;
+    console.log(`[ripple] → ${selName}`);
     const pos = positions[footOffset + sel];
 
     // Adaptive ground level: 5th percentile Y
@@ -132,6 +134,7 @@ export function precomputeEffectEvents(mesh, clip, sparkBoneNames, footBoneGroup
     const groundY = ys[Math.floor(ys.length * 0.05)];
     const threshold = groundY + FOOT_MARGIN;
 
+    const groupStart = footEvents.length;
     let cd = 0;
     for (let f = 2; f < N; f++) {
       if (cd > 0) { cd--; continue; }
@@ -148,9 +151,20 @@ export function precomputeEffectEvents(mesh, clip, sparkBoneNames, footBoneGroup
         });
       }
     }
+
+    footDiag.push({
+      bone: selName,
+      groundY: +groundY.toFixed(2),
+      threshold: +threshold.toFixed(2),
+      yRange: [+ys[0].toFixed(2), +ys[ys.length - 1].toFixed(2)],
+      events: footEvents.length - groupStart,
+    });
   }
   footEvents.sort((a, b) => a.time - b.time);
 
   console.log(`[precompute] ${sparkEvents.length} spark events, ${footEvents.length} foot events`);
-  return { sparkEvents, footEvents };
+  if (footEvents.length) {
+    console.log(`[precompute] foot time range: ${footEvents[0].time.toFixed(2)}s ~ ${footEvents[footEvents.length - 1].time.toFixed(2)}s`);
+  }
+  return { sparkEvents, footEvents, footDiag };
 }

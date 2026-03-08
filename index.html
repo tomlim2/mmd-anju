@@ -367,6 +367,9 @@
     .fx-section { display: none; margin-bottom: 8px; }
     .fx-section.active { display: block; }
     .fx-section-title {
+      display: flex;
+      align-items: center;
+      gap: 4px;
       font-size: 10px;
       font-weight: 600;
       color: var(--text);
@@ -374,6 +377,20 @@
       letter-spacing: 0.5px;
       margin-bottom: 4px;
     }
+    .fx-copy {
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 10px;
+      padding: 0 2px;
+      line-height: 1;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s;
+    }
+    .fx-section:hover .fx-copy { opacity: 1; }
+    .fx-copy:hover { color: var(--accent); }
+    .fx-copy.copied { color: #98c379; opacity: 1; }
     .fx-section .slider { height: 20px; }
     .fx-section .slider-label { min-width: 40px; }
   </style>
@@ -403,26 +420,26 @@
     <div id="fx-panel-title">FX</div>
 
     <div class="fx-section active" id="fx-rise">
-      <div class="fx-section-title">Rise</div>
+      <div class="fx-section-title">Rise <button class="fx-copy" data-fx="rise" title="Copy JSON">&#x2398;</button></div>
       <div class="slider"><span class="slider-label">Speed</span><input class="slider-track" type="range" id="rng-rise-speed" min="0.5" max="8" step="0.1" value="4"><input type="number" class="slider-val" id="val-rise-speed" value="4.0" min="0.5" max="8" step="0.1"></div>
       <div class="slider"><span class="slider-label">Wind</span><input class="slider-track" type="range" id="rng-rise-wind" min="0" max="40" step="1" value="18"><input type="number" class="slider-val" id="val-rise-wind" value="18" min="0" max="40" step="1"></div>
       <div class="slider"><span class="slider-label">Size</span><input class="slider-track" type="range" id="rng-rise-size" min="0.1" max="2" step="0.05" value="0.5"><input type="number" class="slider-val" id="val-rise-size" value="0.50" min="0.1" max="2" step="0.05"></div>
     </div>
 
     <div class="fx-section" id="fx-fall">
-      <div class="fx-section-title">Fall</div>
+      <div class="fx-section-title">Fall <button class="fx-copy" data-fx="fall" title="Copy JSON">&#x2398;</button></div>
       <div class="slider"><span class="slider-label">Speed</span><input class="slider-track" type="range" id="rng-fall-speed" min="0.5" max="8" step="0.1" value="4"><input type="number" class="slider-val" id="val-fall-speed" value="4.0" min="0.5" max="8" step="0.1"></div>
       <div class="slider"><span class="slider-label">Size</span><input class="slider-track" type="range" id="rng-fall-size" min="0.5" max="8" step="0.1" value="2.5"><input type="number" class="slider-val" id="val-fall-size" value="2.5" min="0.5" max="8" step="0.1"></div>
     </div>
 
     <div class="fx-section active" id="fx-ripple">
-      <div class="fx-section-title">Ripple</div>
+      <div class="fx-section-title">Ripple <button class="fx-copy" data-fx="ripple" title="Copy JSON">&#x2398;</button></div>
       <div class="slider"><span class="slider-label">Radius</span><input class="slider-track" type="range" id="rng-ripple-radius" min="1" max="25" step="0.5" value="10"><input type="number" class="slider-val" id="val-ripple-radius" value="10.0" min="1" max="25" step="0.5"></div>
       <div class="slider"><span class="slider-label">Life</span><input class="slider-track" type="range" id="rng-ripple-life" min="0.3" max="4" step="0.1" value="1.4"><input type="number" class="slider-val" id="val-ripple-life" value="1.40" min="0.3" max="4" step="0.1"></div>
     </div>
 
     <div class="fx-section active" id="fx-mirror">
-      <div class="fx-section-title">Mirror</div>
+      <div class="fx-section-title">Mirror <button class="fx-copy" data-fx="mirror" title="Copy JSON">&#x2398;</button></div>
       <div class="slider"><span class="slider-label">Reflect</span><input class="slider-track" type="range" id="rng-mirror-strength" min="0" max="100" step="1" value="40"><input type="number" class="slider-val" id="val-mirror-strength" value="40" min="0" max="100" step="1"></div>
     </div>
   </div>
