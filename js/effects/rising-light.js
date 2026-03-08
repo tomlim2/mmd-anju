@@ -30,7 +30,7 @@ const WIND_RISE_BOOST = 6.0;   // big upward surge on impulse
 const WIND_RADIUS = 10;        // effective impulse radius
 
 // Tunable defaults
-const DEFAULTS = { speed: RISE_SPEED_MAX, wind: WIND_STRENGTH, size: 0.1 };
+const DEFAULTS = { speed: 0.5, wind: WIND_STRENGTH, size: 0.1 };
 
 export class RisingLightEffect {
   static DEFAULTS = DEFAULTS;
