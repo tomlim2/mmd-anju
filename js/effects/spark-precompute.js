@@ -110,8 +110,11 @@ export function precomputeEffectEvents(mesh, clip, sparkBoneNames, footBoneGroup
   for (const { start, count } of groupBounds) {
     if (count === 0) continue;
 
-    // Pick candidate with largest Y range
+    // Pick best candidate: prefer 足ＩＫ if it has meaningful range (IK positions
+    // match between precompute and playback). Fall back to largest Y range
+    // for body-chain VMDs where IK offset is constant.
     let bestIdx = 0, bestRange = -1;
+    let ikIdx = -1, ikRange = 0;
     for (let c = 0; c < count; c++) {
       const pos = positions[footOffset + start + c];
       let minY = Infinity, maxY = -Infinity;
@@ -120,9 +123,13 @@ export function precomputeEffectEvents(mesh, clip, sparkBoneNames, footBoneGroup
         if (p.y > maxY) maxY = p.y;
       }
       const range = maxY - minY;
-      console.log(`[ripple]   ${footCandEntries[start + c].name} Y: ${minY.toFixed(2)}~${maxY.toFixed(2)} (range ${range.toFixed(2)})`);
+      const name = footCandEntries[start + c].name;
+      console.log(`[ripple]   ${name} Y: ${minY.toFixed(2)}~${maxY.toFixed(2)} (range ${range.toFixed(2)})`);
+      if (name.endsWith('足ＩＫ')) { ikIdx = c; ikRange = range; }
       if (range > bestRange) { bestRange = range; bestIdx = c; }
     }
+    // IK target with range > 1 = IK-driven VMD → prefer it (FK bones are inaccurate)
+    if (ikIdx >= 0 && ikRange > 1.0) bestIdx = ikIdx;
 
     const sel = start + bestIdx;
     const selName = footCandEntries[sel].name;

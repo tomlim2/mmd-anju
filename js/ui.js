@@ -409,12 +409,8 @@ export class UI {
     for (const bone of mesh.skeleton.bones) boneMap.set(bone.name, bone);
 
     function footCandidates(side) {
-      // Prefer 足ＩＫ — its VMD keyframes give correct positions without IK solving.
-      // FK bones (つま先, 足首) need IK solving which precompute doesn't do.
-      const ik = side + '足ＩＫ';
-      if (boneMap.has(ik)) return [ik];
       const cands = [];
-      for (const suffix of ['つま先', '足首']) {
+      for (const suffix of ['つま先', '足首', '足ＩＫ']) {
         const name = side + suffix;
         if (boneMap.has(name)) cands.push(name);
       }
