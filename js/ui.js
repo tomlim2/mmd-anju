@@ -22,26 +22,33 @@ export class UI {
     this._vmdPath = '';
     this._currentVmd = null;   // {vmdPath, audioPath} of currently playing song
     this._pendingVmd = null;   // VMD blob fetched before mesh is available
+    this._currentPmxEntry = null; // PMX manifest entry for current model
 
-    this._initPmxSelect();
+    this._pmxReady = this._initPmxSelect();
     this._initSampleMode();
     this._initPlayback();
     this._initTimeline();
     this._initFxSelectors();
     this._initKeyboard();
-    this._loadDefaultModel();
+    this._pmxReady.then(() => this._loadDefaultModel());
 
     this.audio.onEnded(() => this._playNextSample());
   }
 
   async _loadDefaultModel() {
-    const path = 'samples/pmx/animasa/miku.pmx';
+    const defaultEntry = this._pmxManifest?.find(e => e.family === 'diva')
+      || this._pmxManifest?.[0];
+    const path = defaultEntry
+      ? 'samples/pmx/' + defaultEntry.path
+      : 'samples/pmx/animasa/miku.pmx';
     const statusEl = document.getElementById('loading-status');
     statusEl.textContent = 'Loading...';
 
     try {
       await this.loader.loadPMXFromPath(path);
       this._pmxPath = path;
+      this._currentPmxEntry = defaultEntry || null;
+      this._syncPmxSelect();
       document.getElementById('title').style.display = 'none';
 
       // Apply pending VMD if autoplay already fetched one
@@ -102,8 +109,7 @@ export class UI {
     for (const entry of this._pmxManifest) {
       const opt = document.createElement('option');
       opt.value = JSON.stringify(entry);
-      const pct = entry.confidence != null ? `${entry.confidence}%` : '';
-      opt.textContent = `${entry.name} | ${entry.family} | ${pct}`;
+      opt.textContent = entry.name;
       selectPmx.appendChild(opt);
     }
     selectPmx.disabled = false;
@@ -111,12 +117,28 @@ export class UI {
     selectPmx.addEventListener('change', async () => {
       if (!selectPmx.value) return;
       const entry = JSON.parse(selectPmx.value);
+      this._currentPmxEntry = entry;
       if (entry.type === 'zip') {
         await this._loadPmxFromZipPath('samples/pmx/' + entry.path);
       } else {
         await this._loadPmxFromSamplePath('samples/pmx/' + entry.path);
       }
     }, sig);
+  }
+
+  _syncPmxSelect() {
+    if (!this._currentPmxEntry) return;
+    const selectPmx = document.getElementById('select-pmx');
+    for (const opt of selectPmx.options) {
+      if (!opt.value) continue;
+      try {
+        const entry = JSON.parse(opt.value);
+        if (entry.path === this._currentPmxEntry.path) {
+          selectPmx.value = opt.value;
+          return;
+        }
+      } catch {}
+    }
   }
 
   async _loadPmxFromSamplePath(pmxPath) {
@@ -225,14 +247,11 @@ export class UI {
       this._sampleSongs = await res.json();
     } catch { return; }
 
-    songSelect.innerHTML = '<option value="">Song</option>';
+    songSelect.innerHTML = '';
     for (const song of this._sampleSongs) {
       const o = document.createElement('option');
       o.value = song.vmd;
-      const dur = this._formatTime(song.duration);
-      const warn = song.warnings?.length ? ' \u26A0' : '';
-      const model = song.model || '?';
-      o.textContent = `${song.name} | ${model} | ${song.score}% | ${dur}${warn}`;
+      o.textContent = song.name;
       songSelect.appendChild(o);
     }
     songSelect.disabled = false;
@@ -243,7 +262,6 @@ export class UI {
       const song = this._sampleSongs.find(s => s.vmd === songSelect.value);
       if (!song) return;
       this._sampleIndex = this._sampleSongs.indexOf(song);
-      this._updateSongTitle(song.name);
       await this._loadSampleSong(song);
     }, sig);
 
@@ -251,7 +269,6 @@ export class UI {
     this._sampleIndex = 0;
     const first = this._sampleSongs[0];
     songSelect.value = first.vmd;
-    this._updateSongTitle(first.name);
     this._loadSampleSong(first);
   }
 
@@ -268,7 +285,6 @@ export class UI {
     const song = this._sampleSongs[this._sampleIndex];
     const songSelect = document.getElementById('select-song');
     songSelect.value = song.vmd;
-    this._updateSongTitle(song.name);
     this._loadSampleSong(song);
   }
 
@@ -415,91 +431,98 @@ export class UI {
   _showBoneDebug({ remapped, dropped, ignored }, validation, retarget, sizing, vmdMeta) {
     const el = document.getElementById('debug-info');
     const lines = [];
+    const scoreHtml = (pct) => {
+      const cls = pct >= 90 ? 'score-good' : pct >= 75 ? 'score-fair' : 'score-poor';
+      const lbl = pct >= 90 ? 'Good' : pct >= 75 ? 'Fair' : 'Poor';
+      return `<span class="${cls}">${pct}% ${lbl}</span>`;
+    };
 
-    // ── Tier 1: Summary (1 line — family match, score, sizing ratio) ──
-    if (validation) {
-      const t1 = [];
-      if (validation.vmdFamily || validation.pmxFamily) {
-        t1.push(`${validation.vmdFamily || '?'} → ${validation.pmxFamily || '?'}`);
-      }
-      const score = Math.round(validation.score);
-      const scoreClass = score >= 90 ? 'score-good' : score >= 75 ? 'score-fair' : 'score-poor';
-      const scoreLabel = score >= 90 ? 'Good' : score >= 75 ? 'Fair' : 'Poor';
-      t1.push(`<span class="${scoreClass}">${score}% ${scoreLabel}</span>`);
-      if (sizing) t1.push(`<span class="ratio">×${sizing.legRatio.toFixed(2)}</span>`);
-      lines.push(t1.join('  '));
+    // ── Section 1: VMD ──
+    const song = this._sampleSongs?.[this._sampleIndex];
+    if (song) {
+      const target = song.model || vmdMeta?.modelName || '?';
+      const reasons = song.warnings?.length
+        ? `  <span class="warn">${song.warnings.join(', ')}</span>` : '';
+      lines.push(`<span class="meta">VMD</span>  ${song.name} · ${target} · ${scoreHtml(song.score)}${reasons}`);
+    } else if (this._vmdPath) {
+      const parts = this._vmdPath.split('/');
+      const name = parts.length >= 2 ? parts[parts.length - 2] : parts[parts.length - 1];
+      lines.push(`<span class="meta">VMD</span>  ${name}`);
     }
 
-    // ── Tier 2: Details (bone/morph counts, file names) ──
+    // Audio status
+    const audioEl = this.audio.audioElement;
+    if (audioEl) {
+      if (audioEl.error) {
+        lines.push(`<span class="meta">Audio</span>  <span class="error">corrupt (${audioEl.error.message || 'decode failed'})</span>`);
+      } else if (audioEl.duration > 0 && !isNaN(audioEl.duration)) {
+        lines.push(`<span class="meta">Audio</span>  <span class="detail">${this._formatTime(audioEl.duration)}</span>`);
+      } else {
+        lines.push(`<span class="meta">Audio</span>  <span class="detail">loading…</span>`);
+      }
+    } else {
+      lines.push(`<span class="meta">Audio</span>  <span class="warn">none</span>`);
+    }
+
+    // ── Section 2: PMX ──
+    const pmxEntry = this._currentPmxEntry;
+    if (pmxEntry) {
+      const conf = pmxEntry.confidence ?? 100;
+      const family = validation?.pmxFamily || pmxEntry.family || '?';
+      const reason = conf < 90 ? `  <span class="warn">unclear family match</span>` : '';
+      lines.push(`<span class="meta">PMX</span>  ${pmxEntry.name} · ${family} · ${scoreHtml(conf)}${reason}`);
+    } else if (this._pmxPath) {
+      const basename = this._pmxPath.replace(/^.*\//, '').replace(/\.pmx$/i, '');
+      const family = validation?.pmxFamily || '?';
+      lines.push(`<span class="meta">PMX</span>  ${basename} · ${family}`);
+    }
+
+    // ── Section 3: Compatibility ──
     if (validation) {
+      const score = Math.round(validation.score);
       const { boneMatch, morphMatch } = validation;
       const bonePart = `${boneMatch.matched}/${boneMatch.total} bones`;
       const morphPart = morphMatch ? ` · ${morphMatch.matched}/${morphMatch.total} morphs` : '';
-      lines.push(`<span class="detail">${bonePart}${morphPart}</span>`);
+      const sizePart = sizing ? ` · <span class="ratio">×${sizing.legRatio.toFixed(2)}</span>` : '';
+      lines.push(`${scoreHtml(score)}  <span class="detail">${bonePart}${morphPart}${sizePart}</span>`);
+
+      // Reasons for low score
+      const warns = [];
+      if (validation.isCamera) warns.push('<span class="error">Camera VMD on character slot</span>');
+
+      const armCount = Object.keys(validation.armExtremes).length;
+      if (armCount) {
+        warns.push(`<span class="error">${armCount} arm angle${armCount > 1 ? 's' : ''} >120°</span>`);
+        console.log('[debug] Arm peaks:', Object.entries(validation.armExtremes)
+          .map(([bone, v]) => `${bone} ${v.peakAngle}°`).join(', '));
+      }
+      if (dropped.length) {
+        const cls = dropped.length > 5 ? 'error' : 'warn';
+        warns.push(`<span class="${cls}">${dropped.length} bone${dropped.length > 1 ? 's' : ''} missing</span>`);
+        console.log('[debug] Missing bones:', dropped.join(', '));
+      }
+      if (validation.morphMatch?.missing?.length) {
+        const n = validation.morphMatch.missing.length;
+        warns.push(`<span class="warn">${n} morph${n > 1 ? 's' : ''} not in PMX</span>`);
+        console.log('[debug] Missing morphs:', validation.morphMatch.missing.join(', '));
+      }
+      if (validation.semiStdCoverage?.missing.length) {
+        warns.push(`<span class="warn">${validation.semiStdCoverage.missing.length} semi-std missing</span>`);
+        console.log('[debug] Semi-std missing:', validation.semiStdCoverage.missing.join(', '));
+      }
+      if (validation.zenoyaPosition) warns.push('<span class="warn">root position keys</span>');
+      if (validation.translationWarns?.length) {
+        warns.push(`<span class="warn">${validation.translationWarns.length} large translation${validation.translationWarns.length > 1 ? 's' : ''}</span>`);
+      }
+      if (warns.length) lines.push(warns.join(' · '));
     }
 
-    const fileParts = [];
-    if (this._pmxPath) fileParts.push(this._pmxPath.replace(/^.*\//, '').replace(/\.pmx$/i, ''));
-    if (this._vmdPath) {
-      const parts = this._vmdPath.split('/');
-      fileParts.push(parts.length >= 2 ? parts[parts.length - 2] : parts[parts.length - 1]);
-    }
-    if (fileParts.length) lines.push(`<span class="meta">${fileParts.join(' · ')}</span>`);
-
-    // ── Tier 3: Warnings (conditional, color-coded) ──
-    const warns = [];
-
-    // Camera VMD on character slot (error — wrong file type)
-    if (validation?.isCamera) {
-      warns.push('<span class="error">Camera VMD on character slot</span>');
-    }
-
-    // Arm extremes (error — visible clipping)
-    if (validation && Object.keys(validation.armExtremes).length > 0) {
-      const count = Object.keys(validation.armExtremes).length;
-      warns.push(`<span class="error">${count} arm angle${count > 1 ? 's' : ''} >120°</span>`);
-      console.log('[debug] Arm peaks:', Object.entries(validation.armExtremes)
-        .map(([bone, v]) => `${bone} ${v.peakAngle}°`).join(', '));
-    }
-
-    // Missing bones (error if many, warn if few)
-    if (dropped.length) {
-      const cls = dropped.length > 5 ? 'error' : 'warn';
-      warns.push(`<span class="${cls}">${dropped.length} bone${dropped.length > 1 ? 's' : ''} missing</span>`);
-      console.log('[debug] Missing bones:', dropped.join(', '));
-    }
-
-    // Missing morphs (warn — cosmetic only)
-    if (validation?.morphMatch?.missing?.length) {
-      const count = validation.morphMatch.missing.length;
-      warns.push(`<span class="warn">${count} morph${count > 1 ? 's' : ''} not in PMX</span>`);
-      console.log('[debug] Missing morphs:', validation.morphMatch.missing.join(', '));
-    }
-
-    // Semi-standard bones (warn)
-    if (validation?.semiStdCoverage?.missing.length) {
-      warns.push(`<span class="warn">${validation.semiStdCoverage.missing.length} semi-std bones missing</span>`);
-      console.log('[debug] Semi-std missing:', validation.semiStdCoverage.missing.join(', '));
-    }
-
-    // Translation / zenoya (warn)
-    if (validation?.zenoyaPosition) {
-      warns.push('<span class="warn">root has position keys</span>');
-    }
-    if (validation?.translationWarns?.length) {
-      warns.push(`<span class="warn">${validation.translationWarns.length} large translation${validation.translationWarns.length > 1 ? 's' : ''}</span>`);
-    }
-
-    if (warns.length) lines.push(warns.join(' · '));
-
-    // Log sizing & retarget details to console
+    // Console-only details
     if (sizing) {
       const sign = sizing.ikFloorDelta >= 0 ? '+' : '';
       console.log(`[debug] Sizing: ×${sizing.legRatio.toFixed(2)} IK${sign}${sizing.ikFloorDelta.toFixed(2)}`);
     }
-    if (retarget?.applied.length) {
-      console.log('[debug] Retarget:', retarget.applied.join(', '));
-    }
+    if (retarget?.applied.length) console.log('[debug] Retarget:', retarget.applied.join(', '));
 
     el.innerHTML = lines.length ? lines.join('<br>') : '';
   }
@@ -508,13 +531,17 @@ export class UI {
 
   _updateDebugPaths() {
     const el = document.getElementById('debug-info');
-    const fileParts = [];
-    if (this._pmxPath) fileParts.push(this._pmxPath.replace(/^.*\//, '').replace(/\.pmx$/i, ''));
+    const lines = [];
     if (this._vmdPath) {
       const parts = this._vmdPath.split('/');
-      fileParts.push(parts.length >= 2 ? parts[parts.length - 2] : parts[parts.length - 1]);
+      const name = parts.length >= 2 ? parts[parts.length - 2] : parts[parts.length - 1];
+      lines.push(`<span class="meta">VMD</span>  ${name}`);
     }
-    el.innerHTML = fileParts.length ? `<span class="meta">${fileParts.join(' · ')}</span>` : '';
+    if (this._pmxPath) {
+      const basename = this._pmxPath.replace(/^.*\//, '').replace(/\.pmx$/i, '');
+      lines.push(`<span class="meta">PMX</span>  ${basename}`);
+    }
+    el.innerHTML = lines.join('<br>');
   }
 
   // --- Playback Controls (Play/Pause toggle) ---
@@ -719,18 +746,12 @@ export class UI {
     wireSlider('rng-mirror-strength', 'val-mirror-strength', (v) => { this.mirrorFx.strength = v / 100; });
   }
 
-  _updateSongTitle(name) {
-    const el = document.getElementById('song-title');
-    if (el) el.textContent = name || '';
-  }
-
   _playPrevSample() {
     if (!this._sampleSongs.length) return;
     this._sampleIndex = (this._sampleIndex - 1 + this._sampleSongs.length) % this._sampleSongs.length;
     const song = this._sampleSongs[this._sampleIndex];
     const songSelect = document.getElementById('select-song');
     songSelect.value = song.vmd;
-    this._updateSongTitle(song.name);
     this._loadSampleSong(song);
   }
 

@@ -78,16 +78,6 @@
       background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
     }
 
-    #song-title {
-      font-size: 14px;
-      font-weight: 500;
-      color: #fff;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 280px;
-    }
-
     .top-sep {
       width: 1px;
       height: 16px;
@@ -95,7 +85,31 @@
       flex-shrink: 0;
     }
 
-    #top-bar select {
+    /* Title-style dropdowns (song & PMX) */
+    #top-bar .title-select {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      max-width: 300px;
+      padding: 2px 0;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 2px center;
+      padding-right: 14px;
+    }
+
+    #top-bar .title-select:hover { color: var(--accent); }
+    #top-bar .title-select:disabled { opacity: 0.4; cursor: default; }
+    #top-bar .title-select option { background: var(--panel); color: var(--text); font-size: 12px; font-weight: 400; }
+
+    /* Utility selects */
+    #top-bar select:not(.title-select) {
       background: rgba(255,255,255,0.1);
       border: 1px solid rgba(255,255,255,0.12);
       color: var(--text);
@@ -107,8 +121,8 @@
       border-radius: 2px;
     }
 
-    #top-bar select:hover { background: rgba(255,255,255,0.16); }
-    #top-bar select:disabled { opacity: 0.4; cursor: default; }
+    #top-bar select:not(.title-select):hover { background: rgba(255,255,255,0.16); }
+    #top-bar select:not(.title-select):disabled { opacity: 0.4; cursor: default; }
 
     #loading-status {
       font-size: 11px;
@@ -371,10 +385,9 @@
 
   <!-- Top Bar: title + settings -->
   <div id="top-bar">
-    <span id="song-title"></span>
+    <select id="select-song" class="title-select" disabled><option value="">Song</option></select>
     <div class="top-sep"></div>
-    <select id="select-song" disabled><option value="">Song</option></select>
-    <select id="select-pmx" disabled><option value="">PMX</option></select>
+    <select id="select-pmx" class="title-select" disabled><option value="">PMX</option></select>
     <span id="loading-status"></span>
     <div class="top-sep"></div>
     <label><input type="checkbox" id="chk-rise" checked> Rise</label>
