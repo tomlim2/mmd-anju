@@ -27,6 +27,12 @@
       --text: #d4d4d4;
       --text-dim: #999;
       --accent: #5b9bd5;
+      --accent-dim: #5b9bd540;
+      --track: #3a3a3a;
+      --thumb: #888;
+      --thumb-hover: #aaa;
+      --font-xs: 10px;
+      --radius-sm: 3px;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -58,87 +64,112 @@
       pointer-events: none;
     }
 
-    /* Controls bar */
-    #controls {
+    /* ── Top Bar ── */
+    #top-bar {
       position: fixed;
-      top: 12px;
-      left: 12px;
-      right: 12px;
+      top: 0;
+      left: 0;
+      right: 0;
       display: flex;
-      gap: 8px;
+      gap: 10px;
       align-items: center;
+      padding: 10px 14px;
       z-index: 20;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
     }
 
-    #controls button, #controls select {
-      background: var(--surface);
-      border: 1px solid var(--border);
+    #song-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 280px;
+    }
+
+    .top-sep {
+      width: 1px;
+      height: 16px;
+      background: rgba(255,255,255,0.15);
+      flex-shrink: 0;
+    }
+
+    #top-bar select {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.12);
       color: var(--text);
-      padding: 6px 14px;
+      padding: 4px 8px;
       font-size: 12px;
       cursor: pointer;
       font-family: inherit;
+      max-width: 280px;
+      border-radius: 2px;
     }
 
-    #controls button:hover, #controls select:hover {
-      background: var(--panel);
+    #top-bar select:hover { background: rgba(255,255,255,0.16); }
+    #top-bar select:disabled { opacity: 0.4; cursor: default; }
+
+    #loading-status {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-left: auto;
     }
 
-    #controls button:disabled, #controls select:disabled {
-      opacity: 0.4;
-      cursor: default;
+    #top-bar label {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      color: var(--text-dim);
+      cursor: pointer;
+      user-select: none;
     }
 
-    #controls select {
-      max-width: 180px;
-    }
-
-    #volume {
-      width: 80px;
+    #top-bar input[type="checkbox"] {
       accent-color: var(--accent);
       cursor: pointer;
     }
 
-    /* Timeline scrubber */
+    /* ── Bottom Player Bar ── */
+    #player-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.5) 60%, transparent 100%);
+      padding: 0 12px 8px;
+    }
+
+    /* Timeline — full width, YouTube-style thin bar */
     #timeline {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex: 1;
-      min-width: 80px;
-    }
-
-    #tl-current, #tl-total {
-      font-size: 10px;
-      color: var(--text-dim);
-      white-space: nowrap;
-      font-variant-numeric: tabular-nums;
-      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
-      user-select: none;
-    }
-
-    #tl-track {
-      flex: 1;
-      padding: 10px 0;
       position: relative;
+      width: 100%;
+      padding: 10px 0 6px;
       cursor: pointer;
       touch-action: none;
       user-select: none;
     }
 
     #tl-bar {
-      height: 4px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 2px;
+      height: 3px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 1.5px;
       overflow: hidden;
       pointer-events: none;
+      transition: height 0.12s;
+    }
+
+    #timeline:hover #tl-bar,
+    #timeline.dragging #tl-bar {
+      height: 5px;
     }
 
     #tl-fill {
       height: 100%;
       background: var(--accent);
-      border-radius: 2px;
+      border-radius: 1.5px;
       width: 100%;
       transform-origin: left;
       transform: scaleX(0);
@@ -149,99 +180,92 @@
       position: absolute;
       top: 50%;
       left: 0%;
-      width: 10px;
-      height: 10px;
+      width: 13px;
+      height: 13px;
       background: var(--accent);
       border-radius: 50%;
       transform: translate(-50%, -50%);
       opacity: 0;
-      transition: opacity 0.15s;
+      transition: opacity 0.12s;
       pointer-events: none;
     }
 
-    #tl-track:hover #tl-thumb,
+    #timeline:hover #tl-thumb,
     #timeline.dragging #tl-thumb {
       opacity: 1;
     }
 
-    #timeline.dragging {
-      user-select: none;
-    }
-
-    .separator {
-      width: 1px;
-      height: 20px;
-      background: var(--border);
-    }
-
-    /* Row 2: Model controls */
-    #controls-model,
-    #controls-hand-fx,
-    #controls-bg-fx {
-      position: fixed;
-      left: 12px;
+    /* Controls row */
+    #player-controls {
       display: flex;
-      gap: 8px;
       align-items: center;
-      z-index: 20;
+      gap: 2px;
+      height: 36px;
     }
 
-    #controls-model { top: 44px; right: 12px; }
-    #controls-hand-fx { top: 76px; }
-    #controls-bg-fx { top: 108px; }
-
-    #controls-model button,
-    #controls-model select,
-    #controls-hand-fx select {
-      background: var(--surface);
-      border: 1px solid var(--border);
+    #player-controls button {
+      background: none;
+      border: none;
       color: var(--text);
-      padding: 6px 14px;
-      font-size: 12px;
       cursor: pointer;
-      font-family: inherit;
-    }
-
-    #controls-model button:hover,
-    #controls-model select:hover,
-    #controls-hand-fx select:hover {
-      background: var(--panel);
-    }
-
-    #controls-bg-fx label {
+      font-size: 14px;
+      width: 36px;
+      height: 36px;
       display: flex;
       align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      color: var(--text-dim);
-      cursor: pointer;
-      user-select: none;
+      justify-content: center;
+      border-radius: 50%;
+      transition: background 0.12s;
+      flex-shrink: 0;
     }
 
-    #controls-bg-fx input[type="checkbox"] {
+    #player-controls button:hover {
+      background: rgba(255,255,255,0.1);
+    }
+
+    #btn-playpause {
+      font-size: 18px !important;
+      width: 40px !important;
+      height: 40px !important;
+    }
+
+    /* Volume — YouTube style: icon + slider on hover */
+    #volume-group {
+      display: flex;
+      align-items: center;
+      margin-left: 2px;
+    }
+
+    #volume {
+      width: 0;
+      opacity: 0;
+      transition: width 0.2s, opacity 0.2s, margin 0.2s;
       accent-color: var(--accent);
       cursor: pointer;
+      margin-left: 0;
     }
 
-    #controls-model select:disabled {
-      opacity: 0.4;
-      cursor: default;
+    #volume-group:hover #volume {
+      width: 52px;
+      opacity: 1;
+      margin-left: 4px;
     }
 
-    #controls-model select {
-      max-width: 180px;
-    }
-
-    #loading-status {
-      font-size: 11px;
+    /* Time display */
+    .time-display {
+      font-size: 12px;
       color: var(--text-dim);
-      margin-left: auto;
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+      user-select: none;
+      margin-left: 10px;
     }
 
-    /* Debug info */
+    /* ── Debug info ── */
     #debug-info {
       position: fixed;
-      top: 140px;
+      top: 48px;
       left: 12px;
       max-width: 450px;
       font-size: 11px;
@@ -259,12 +283,27 @@
       padding: 8px 10px;
     }
 
-    #debug-info .remap { color: #e5c07b; }
-    #debug-info .drop { color: #e06c75; }
+    /* Score labels */
     #debug-info .score-good { color: #98c379; }
     #debug-info .score-fair { color: #e5c07b; }
     #debug-info .score-poor { color: #e06c75; font-weight: 500; }
+
+    /* Tier 1: summary — inherits base color (--text-dim) */
+    #debug-info .ratio { color: #666; }
+
+    /* Tier 2: details */
+    #debug-info .detail { color: #777; }
+    #debug-info .meta { color: #555; }
+
+    /* Tier 3: warnings */
     #debug-info .warn { color: #e5c07b; }
+    #debug-info .error { color: #e06c75; }
+
+    /* Focus visible */
+    button:focus-visible, select:focus-visible, input[type="range"]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
 
     /* WebGPU fallback */
     .fallback {
@@ -275,15 +314,54 @@
       text-align: center;
       padding: 2rem;
     }
+    .fallback h2 { margin-bottom: 1rem; font-weight: 500; }
+    .fallback p { color: var(--text-dim); }
 
-    .fallback h2 {
-      margin-bottom: 1rem;
-      font-weight: 500;
+    /* --- Slider Component (from matcap-painter) --- */
+    .slider { display: flex; align-items: center; gap: 6px; height: 24px; }
+    .slider-label { color: var(--text-dim); font-size: var(--font-xs); text-transform: uppercase; letter-spacing: 0.4px; min-width: 18px; flex-shrink: 0; }
+    .slider-track { -webkit-appearance: none; appearance: none; width: 72px; height: 3px; background: var(--track); border-radius: 2px; outline: none; cursor: pointer; }
+    .slider-track::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--thumb); border: none; cursor: pointer; transition: background 0.12s; }
+    .slider-track::-webkit-slider-thumb:hover { background: var(--thumb-hover); }
+    .slider-track::-webkit-slider-thumb:active { background: var(--accent); }
+    .slider-track:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 2px; }
+    .slider-track::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--thumb); border: none; cursor: pointer; }
+    .slider-track::-moz-range-track { height: 3px; background: var(--track); border-radius: 2px; border: none; }
+    .slider-val { color: var(--text-dim); font-size: var(--font-xs); font-family: inherit; font-variant-numeric: tabular-nums; width: 30px; text-align: right; flex-shrink: 0; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 1px 2px; outline: none; -moz-appearance: textfield; }
+    .slider-val::-webkit-inner-spin-button, .slider-val::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .slider-val:hover { border-color: var(--border); }
+    .slider-val:focus-visible { border-color: var(--accent-dim); color: var(--text); }
+
+    /* ── FX Debug Panel ── */
+    #fx-panel {
+      position: fixed;
+      top: 48px;
+      right: 12px;
+      width: 200px;
+      z-index: 20;
+      font-size: 11px;
+      user-select: none;
     }
-
-    .fallback p {
+    #fx-panel-title {
+      font-size: 10px;
+      font-weight: 600;
       color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 6px;
     }
+    .fx-section { display: none; margin-bottom: 8px; }
+    .fx-section.active { display: block; }
+    .fx-section-title {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .fx-section .slider { height: 20px; }
+    .fx-section .slider-label { min-width: 40px; }
   </style>
 </head>
 <body>
@@ -291,37 +369,68 @@
 
   <div id="title">MMD Player</div>
 
-  <div id="debug-info"></div>
-
-  <div id="controls">
-    <select id="select-artist"><option value="">Artist</option></select>
+  <!-- Top Bar: title + settings -->
+  <div id="top-bar">
+    <span id="song-title"></span>
+    <div class="top-sep"></div>
     <select id="select-song" disabled><option value="">Song</option></select>
-    <div class="separator"></div>
-    <button id="btn-playpause">&#9655;</button>
-    <div id="timeline">
-      <span id="tl-current">0:00 f0</span>
-      <div id="tl-track">
-        <div id="tl-bar"><div id="tl-fill"></div></div>
-        <div id="tl-thumb"></div>
-      </div>
-      <span id="tl-total">0:00 f0</span>
-    </div>
-    <button id="btn-mute" class="toggle muted">&#128263;</button>
-    <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5">
-  </div>
-
-  <div id="controls-model">
     <select id="select-pmx" disabled><option value="">PMX</option></select>
     <span id="loading-status"></span>
-  </div>
-
-  <div id="controls-bg-fx">
+    <div class="top-sep"></div>
     <label><input type="checkbox" id="chk-rise" checked> Rise</label>
     <label><input type="checkbox" id="chk-fall"> Fall</label>
     <label><input type="checkbox" id="chk-ripple" checked> Ripple</label>
     <label><input type="checkbox" id="chk-mirror" checked> Mirror</label>
   </div>
 
+  <div id="debug-info"></div>
+
+  <!-- FX Debug Panel -->
+  <div id="fx-panel">
+    <div id="fx-panel-title">FX</div>
+
+    <div class="fx-section active" id="fx-rise">
+      <div class="fx-section-title">Rise</div>
+      <div class="slider"><span class="slider-label">Speed</span><input class="slider-track" type="range" id="rng-rise-speed" min="0.5" max="8" step="0.1" value="4"><input type="number" class="slider-val" id="val-rise-speed" value="4.0" min="0.5" max="8" step="0.1"></div>
+      <div class="slider"><span class="slider-label">Wind</span><input class="slider-track" type="range" id="rng-rise-wind" min="0" max="40" step="1" value="18"><input type="number" class="slider-val" id="val-rise-wind" value="18" min="0" max="40" step="1"></div>
+      <div class="slider"><span class="slider-label">Size</span><input class="slider-track" type="range" id="rng-rise-size" min="0.1" max="2" step="0.05" value="0.5"><input type="number" class="slider-val" id="val-rise-size" value="0.50" min="0.1" max="2" step="0.05"></div>
+    </div>
+
+    <div class="fx-section" id="fx-fall">
+      <div class="fx-section-title">Fall</div>
+      <div class="slider"><span class="slider-label">Speed</span><input class="slider-track" type="range" id="rng-fall-speed" min="0.5" max="8" step="0.1" value="4"><input type="number" class="slider-val" id="val-fall-speed" value="4.0" min="0.5" max="8" step="0.1"></div>
+      <div class="slider"><span class="slider-label">Size</span><input class="slider-track" type="range" id="rng-fall-size" min="0.5" max="8" step="0.1" value="2.5"><input type="number" class="slider-val" id="val-fall-size" value="2.5" min="0.5" max="8" step="0.1"></div>
+    </div>
+
+    <div class="fx-section active" id="fx-ripple">
+      <div class="fx-section-title">Ripple</div>
+      <div class="slider"><span class="slider-label">Radius</span><input class="slider-track" type="range" id="rng-ripple-radius" min="1" max="25" step="0.5" value="10"><input type="number" class="slider-val" id="val-ripple-radius" value="10.0" min="1" max="25" step="0.5"></div>
+      <div class="slider"><span class="slider-label">Life</span><input class="slider-track" type="range" id="rng-ripple-life" min="0.3" max="4" step="0.1" value="1.4"><input type="number" class="slider-val" id="val-ripple-life" value="1.40" min="0.3" max="4" step="0.1"></div>
+    </div>
+
+    <div class="fx-section active" id="fx-mirror">
+      <div class="fx-section-title">Mirror</div>
+      <div class="slider"><span class="slider-label">Reflect</span><input class="slider-track" type="range" id="rng-mirror-strength" min="0" max="100" step="1" value="40"><input type="number" class="slider-val" id="val-mirror-strength" value="40" min="0" max="100" step="1"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Player Bar: YouTube-style -->
+  <div id="player-bar">
+    <div id="timeline">
+      <div id="tl-bar"><div id="tl-fill"></div></div>
+      <div id="tl-thumb"></div>
+    </div>
+    <div id="player-controls">
+      <button id="btn-prev" title="Previous (P)">&#9198;</button>
+      <button id="btn-playpause" title="Play/Pause (Space)">&#9655;</button>
+      <button id="btn-next" title="Next (N)">&#9197;</button>
+      <div id="volume-group">
+        <button id="btn-mute" title="Mute (M)">&#128263;</button>
+        <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5">
+      </div>
+      <span class="time-display"><span id="tl-current">0:00</span> / <span id="tl-total">0:00</span></span>
+    </div>
+  </div>
 
   <script>
     if (!navigator.gpu) {

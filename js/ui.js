@@ -416,78 +416,89 @@ export class UI {
     const el = document.getElementById('debug-info');
     const lines = [];
 
-    // Line 1: bone/morph counts + score
+    // ── Tier 1: Summary (1 line — family match, score, sizing ratio) ──
     if (validation) {
-      const { boneMatch, morphMatch, score } = validation;
+      const t1 = [];
+      if (validation.vmdFamily || validation.pmxFamily) {
+        t1.push(`${validation.vmdFamily || '?'} → ${validation.pmxFamily || '?'}`);
+      }
+      const score = Math.round(validation.score);
+      const scoreClass = score >= 90 ? 'score-good' : score >= 75 ? 'score-fair' : 'score-poor';
+      const scoreLabel = score >= 90 ? 'Good' : score >= 75 ? 'Fair' : 'Poor';
+      t1.push(`<span class="${scoreClass}">${score}% ${scoreLabel}</span>`);
+      if (sizing) t1.push(`<span class="ratio">×${sizing.legRatio.toFixed(2)}</span>`);
+      lines.push(t1.join('  '));
+    }
+
+    // ── Tier 2: Details (bone/morph counts, file names) ──
+    if (validation) {
+      const { boneMatch, morphMatch } = validation;
       const bonePart = `${boneMatch.matched}/${boneMatch.total} bones`;
-      const morphPart = morphMatch
-        ? ` · ${morphMatch.matched}/${morphMatch.total} morphs`
-        : '';
-      const scoreClass = score >= 80 ? 'score-good' : score >= 50 ? 'score-fair' : 'score-poor';
-      const scoreLabel = score >= 80 ? '' : score >= 50 ? ' FAIR' : ' POOR';
-      lines.push(`${bonePart}${morphPart} · <span class="${scoreClass}">${Math.round(score)}%${scoreLabel}</span>`);
+      const morphPart = morphMatch ? ` · ${morphMatch.matched}/${morphMatch.total} morphs` : '';
+      lines.push(`<span class="detail">${bonePart}${morphPart}</span>`);
     }
 
-    // Line 2: Source + Retarget
-    const infoParts = [];
-    if (validation?.vmdFamily || validation?.pmxFamily) {
-      infoParts.push(`VMD: ${validation.vmdFamily || '?'} → PMX: ${validation.pmxFamily || '?'}`);
+    const fileParts = [];
+    if (this._pmxPath) fileParts.push(this._pmxPath.replace(/^.*\//, '').replace(/\.pmx$/i, ''));
+    if (this._vmdPath) {
+      const parts = this._vmdPath.split('/');
+      fileParts.push(parts.length >= 2 ? parts[parts.length - 2] : parts[parts.length - 1]);
     }
-    if (retarget?.applied.length) {
-      infoParts.push(`Retarget: ${retarget.applied.join(', ')}`);
-    }
-    if (sizing) {
-      const delta = sizing.ikFloorDelta;
-      const sign = delta >= 0 ? '+' : '';
-      infoParts.push(`Sizing: ×${sizing.legRatio.toFixed(2)} IK${sign}${delta.toFixed(2)}`);
-    }
-    if (infoParts.length) lines.push(infoParts.join(' · '));
+    if (fileParts.length) lines.push(`<span class="meta">${fileParts.join(' · ')}</span>`);
 
-    // Warnings
+    // ── Tier 3: Warnings (conditional, color-coded) ──
+    const warns = [];
+
+    // Camera VMD on character slot (error — wrong file type)
     if (validation?.isCamera) {
-      lines.push('<span class="warn">WARN Camera VMD loaded on character slot</span>');
+      warns.push('<span class="error">Camera VMD on character slot</span>');
     }
+
+    // Arm extremes (error — visible clipping)
+    if (validation && Object.keys(validation.armExtremes).length > 0) {
+      const count = Object.keys(validation.armExtremes).length;
+      warns.push(`<span class="error">${count} arm angle${count > 1 ? 's' : ''} >120°</span>`);
+      console.log('[debug] Arm peaks:', Object.entries(validation.armExtremes)
+        .map(([bone, v]) => `${bone} ${v.peakAngle}°`).join(', '));
+    }
+
+    // Missing bones (error if many, warn if few)
+    if (dropped.length) {
+      const cls = dropped.length > 5 ? 'error' : 'warn';
+      warns.push(`<span class="${cls}">${dropped.length} bone${dropped.length > 1 ? 's' : ''} missing</span>`);
+      console.log('[debug] Missing bones:', dropped.join(', '));
+    }
+
+    // Missing morphs (warn — cosmetic only)
+    if (validation?.morphMatch?.missing?.length) {
+      const count = validation.morphMatch.missing.length;
+      warns.push(`<span class="warn">${count} morph${count > 1 ? 's' : ''} not in PMX</span>`);
+      console.log('[debug] Missing morphs:', validation.morphMatch.missing.join(', '));
+    }
+
+    // Semi-standard bones (warn)
     if (validation?.semiStdCoverage?.missing.length) {
-      lines.push(`<span class="warn">WARN 準標準ボーン: ${validation.semiStdCoverage.missing.join(', ')}</span>`);
+      warns.push(`<span class="warn">${validation.semiStdCoverage.missing.length} semi-std bones missing</span>`);
+      console.log('[debug] Semi-std missing:', validation.semiStdCoverage.missing.join(', '));
     }
+
+    // Translation / zenoya (warn)
     if (validation?.zenoyaPosition) {
-      lines.push('<span class="warn">WARN 全ての親 has position keyframes</span>');
+      warns.push('<span class="warn">root has position keys</span>');
     }
     if (validation?.translationWarns?.length) {
-      lines.push(`<span class="warn">WARN Large translation: ${validation.translationWarns.join(', ')}</span>`);
+      warns.push(`<span class="warn">${validation.translationWarns.length} large translation${validation.translationWarns.length > 1 ? 's' : ''}</span>`);
     }
 
-    // Arm extremes
-    if (validation && Object.keys(validation.armExtremes).length > 0) {
-      const warns = Object.entries(validation.armExtremes)
-        .map(([bone, v]) => `${bone} ${v.peakAngle}°`);
-      lines.push(`<span class="drop">Arm peak: ${warns.join(', ')}</span>`);
+    if (warns.length) lines.push(warns.join(' · '));
+
+    // Log sizing & retarget details to console
+    if (sizing) {
+      const sign = sizing.ikFloorDelta >= 0 ? '+' : '';
+      console.log(`[debug] Sizing: ×${sizing.legRatio.toFixed(2)} IK${sign}${sizing.ikFloorDelta.toFixed(2)}`);
     }
-
-    // Missing bones
-    if (dropped.length) {
-      lines.push(`<span class="drop">Missing: ${dropped.join(', ')}</span>`);
-    }
-
-    // Morph missing
-    if (validation?.morphMatch?.missing?.length) {
-      const miss = validation.morphMatch.missing;
-      const display = miss.length > 5
-        ? miss.slice(0, 5).join(', ') + ` +${miss.length - 5} more`
-        : miss.join(', ');
-      lines.push(`<span class="warn">Morph missing: ${display}</span>`);
-    }
-
-    // Paths
-    if (this._pmxPath) lines.push(`PMX: ${this._pmxPath}`);
-    if (this._vmdPath) lines.push(`VMD: ${this._vmdPath}`);
-
-    // VMD quality score breakdown
-    const song = this._sampleSongs[this._sampleIndex];
-    if (song) {
-      const warns = song.warnings?.length
-        ? `  <span class="drop">${song.warnings.join(', ')}</span>` : '';
-      lines.push(`<span class="score-dim">VMD Quality: ${song.score}%  [bones≤40  morphs≤25  groups≤20  source≤15]${warns}</span>`);
+    if (retarget?.applied.length) {
+      console.log('[debug] Retarget:', retarget.applied.join(', '));
     }
 
     el.innerHTML = lines.length ? lines.join('<br>') : '';
@@ -497,13 +508,13 @@ export class UI {
 
   _updateDebugPaths() {
     const el = document.getElementById('debug-info');
-    const lines = [];
-    if (this._pmxPath) {
-      const pmxDisplay = this._pmxPath;
-      lines.push(`PMX: ${pmxDisplay}`);
+    const fileParts = [];
+    if (this._pmxPath) fileParts.push(this._pmxPath.replace(/^.*\//, '').replace(/\.pmx$/i, ''));
+    if (this._vmdPath) {
+      const parts = this._vmdPath.split('/');
+      fileParts.push(parts.length >= 2 ? parts[parts.length - 2] : parts[parts.length - 1]);
     }
-    if (this._vmdPath) lines.push(`VMD: ${this._vmdPath}`);
-    el.innerHTML = lines.length ? lines.join('<br>') : '';
+    el.innerHTML = fileParts.length ? `<span class="meta">${fileParts.join(' · ')}</span>` : '';
   }
 
   // --- Playback Controls (Play/Pause toggle) ---
