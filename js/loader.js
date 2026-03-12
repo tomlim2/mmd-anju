@@ -60,11 +60,8 @@ export class MMDModelLoader {
 
     return new Promise((resolve, reject) => {
       loader.load(pmxUrl, (mesh) => {
-        this._removeCurrentMesh();
         swapToToonMaterial(mesh);
-
-        this.mesh = mesh;
-        this.mmdScene.scene.add(mesh);
+        this._pendingMesh = mesh;
         resolve(mesh);
       }, undefined, (err) => {
         reject(err);
@@ -78,16 +75,28 @@ export class MMDModelLoader {
 
     return new Promise((resolve, reject) => {
       loader.load(path, (mesh) => {
-        this._removeCurrentMesh();
         swapToToonMaterial(mesh);
-
-        this.mesh = mesh;
-        this.mmdScene.scene.add(mesh);
+        this._pendingMesh = mesh;
         resolve(mesh);
       }, undefined, (err) => {
         reject(err);
       });
     });
+  }
+
+  /** Swap pending mesh into scene, disposing the old one. Starts hidden. */
+  commitPendingMesh() {
+    if (!this._pendingMesh) return;
+    this._removeCurrentMesh();
+    this.mesh = this._pendingMesh;
+    this._pendingMesh = null;
+    this.mesh.visible = false;
+    this.mmdScene.scene.add(this.mesh);
+  }
+
+  /** Reveal the current mesh (call after VMD is applied). */
+  reveal() {
+    if (this.mesh) this.mesh.visible = true;
   }
 
   _removeCurrentMesh() {

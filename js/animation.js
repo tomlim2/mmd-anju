@@ -53,9 +53,12 @@ export class MMDAnimation {
   seekTo(time) {
     if (!this.helper || !this.mesh) return;
     const obj = this.helper.objects.get(this.mesh);
-    if (obj && obj.mixer) {
-      obj.mixer.setTime(time);
-    }
+    if (!obj || !obj.mixer) return;
+
+    // Compute delta from current mixer time to target, then run the
+    // full helper pipeline (restoreBones → mixer.update(delta) → saveBones → IK/Grant)
+    const delta = time - obj.mixer.time;
+    this.helper.update(delta);
   }
 
   togglePlay() {

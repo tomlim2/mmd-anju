@@ -3,6 +3,7 @@ export class MMDAudio {
     this.animation = animation;
     this.audioElement = null;
     this._volume = 0.5;
+    this._muted = false;
     this._onEnded = null;
   }
 
@@ -16,6 +17,7 @@ export class MMDAudio {
     this.audioElement = new Audio(url);
     this.audioElement.preload = 'auto';
     this.audioElement.volume = this._volume;
+    this.audioElement.muted = this._muted;
     this.audioElement.addEventListener('ended', () => {
       if (this._onEnded) this._onEnded();
     });
@@ -27,6 +29,11 @@ export class MMDAudio {
   setVolume(v) {
     this._volume = v;
     if (this.audioElement) this.audioElement.volume = v;
+  }
+
+  setMuted(muted) {
+    this._muted = muted;
+    if (this.audioElement) this.audioElement.muted = muted;
   }
 
   play() {

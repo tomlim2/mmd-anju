@@ -45,7 +45,12 @@ export class UI {
     statusEl.textContent = 'Loading...';
 
     try {
-      await this.loader.loadPMXFromPath(path);
+      // Wait for both PMX and first VMD to finish loading
+      await Promise.all([
+        this.loader.loadPMXFromPath(path),
+        this._firstVmdReady,
+      ]);
+      this.loader.commitPendingMesh();
       this._pmxPath = path;
       this._currentPmxEntry = defaultEntry || null;
       this._syncPmxSelect();
@@ -58,15 +63,14 @@ export class UI {
         this._pendingVmd = null;
 
         if (this.animation.helper && this.animation.mesh) {
-          const obj = this.animation.helper.objects.get(this.animation.mesh);
-          if (obj && obj.mixer) {
-            const t = this.audio.currentTime;
-            obj.mixer.setTime(t);
-            this.riseFx.seekTo(t);
-            this.rippleFx.seekTo(t);
-          }
+          const t = this.audio.currentTime;
+          this.animation.seekTo(t);
+          this.riseFx.seekTo(t);
+          this.rippleFx.seekTo(t);
         }
         this.animation.playing = true;
+        this.loader.reveal();
+        this._hideLoading();
         try {
           await this.audio.audioElement.play();
           this._updatePlayPauseButton(true);
@@ -83,11 +87,15 @@ export class UI {
           document.addEventListener('click', resume, { once: true });
           document.addEventListener('keydown', resume, { once: true });
         }
+      } else {
+        this.loader.reveal();
+        this._hideLoading();
       }
 
       statusEl.textContent = '';
     } catch (err) {
       console.error('Default model load error:', err);
+      this._hideLoading();
       statusEl.textContent = 'Model not found';
     }
   }
@@ -144,20 +152,25 @@ export class UI {
   async _loadPmxFromSamplePath(pmxPath) {
     const statusEl = document.getElementById('loading-status');
     statusEl.textContent = 'Loading...';
+    this._showLoading();
 
     const savedTime = this.audio.currentTime;
-    this.animation.destroy();
-    this.riseFx.resetTime();
-    this.rippleFx.resetTime();
 
     try {
+      // Load new mesh in background (old model stays visible)
       await this.loader.loadPMXFromPath(pmxPath);
+      // Swap: destroy old animation, commit new mesh, reapply VMD
+      this.animation.destroy();
+      this.loader.commitPendingMesh();
       this._pmxPath = pmxPath;
       this._updateDebugPaths();
       await this._reapplyCurrentVmd(savedTime);
+      this.loader.reveal();
+      this._hideLoading();
       statusEl.textContent = '';
     } catch (err) {
       console.error('PMX load error:', err);
+      this._hideLoading();
       statusEl.textContent = 'Load failed';
       setTimeout(() => { if (statusEl.textContent === 'Load failed') statusEl.textContent = ''; }, 3000);
     }
@@ -166,11 +179,9 @@ export class UI {
   async _loadPmxFromZipPath(zipUrl) {
     const statusEl = document.getElementById('loading-status');
     statusEl.textContent = 'Loading...';
+    this._showLoading();
 
     const savedTime = this.audio.currentTime;
-    this.animation.destroy();
-    this.riseFx.resetTime();
-    this.rippleFx.resetTime();
 
     try {
       const res = await fetch(zipUrl);
@@ -203,12 +214,18 @@ export class UI {
       }
 
       await this.loader.loadPMXFromBlobs(pmxFile, blobs);
+      // Swap: destroy old animation, commit new mesh, reapply VMD
+      this.animation.destroy();
+      this.loader.commitPendingMesh();
       this._pmxPath = targetPmx;
       this._updateDebugPaths();
       await this._reapplyCurrentVmd(savedTime);
+      this.loader.reveal();
+      this._hideLoading();
       statusEl.textContent = '';
     } catch (err) {
       console.error('ZIP PMX load error:', err);
+      this._hideLoading();
       statusEl.textContent = 'Load failed';
       setTimeout(() => { if (statusEl.textContent === 'Load failed') statusEl.textContent = ''; }, 3000);
     }
@@ -223,12 +240,9 @@ export class UI {
     this._pendingVmd = null;
 
     if (this.animation.helper && this.animation.mesh) {
-      const obj = this.animation.helper.objects.get(this.animation.mesh);
-      if (obj && obj.mixer) {
-        obj.mixer.setTime(savedTime);
-        this.riseFx.seekTo(savedTime);
-        this.rippleFx.seekTo(savedTime);
-      }
+      this.animation.seekTo(savedTime);
+      this.riseFx.seekTo(savedTime);
+      this.rippleFx.seekTo(savedTime);
     }
     this.animation.playing = true;
   }
@@ -277,7 +291,7 @@ export class UI {
     const first = this._sampleSongs[0];
     songSelect.value = first.vmd;
     syncSelectColor();
-    this._loadSampleSong(first);
+    this._firstVmdReady = this._loadSampleSong(first);
   }
 
   _loadSampleSong(song) {
@@ -343,20 +357,8 @@ export class UI {
       } else {
         this._pendingVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._currentVmd = null;
-        try {
-          await this.audio.audioElement.play();
-          this._updatePlayPauseButton(true);
-        } catch {
-          this._updatePlayPauseButton(false);
-          const resume = () => {
-            this.audio.play();
-            this._updatePlayPauseButton(true);
-            document.removeEventListener('click', resume);
-            document.removeEventListener('keydown', resume);
-          };
-          document.addEventListener('click', resume, { once: true });
-          document.addEventListener('keydown', resume, { once: true });
-        }
+        // Audio playback deferred — _loadDefaultModel will play after mesh + VMD ready
+        this.audio.audioElement.play().catch(() => {});
       }
     } catch (err) {
       console.error('VMD load error:', err);
@@ -585,9 +587,10 @@ export class UI {
     const volumeEl = document.getElementById('volume');
 
     // Start muted — slider stays at 0.5 but audio is silent
+    // Use audioElement.muted (not volume=0) so browser allows autoplay
     this._muted = true;
     this._prevVolume = parseFloat(volumeEl.value);
-    this.audio.setVolume(0);
+    this.audio.setMuted(true);
 
     btn.addEventListener('click', () => {
       if (this.audio.audioElement && !this.audio.audioElement.paused) {
@@ -603,9 +606,8 @@ export class UI {
 
     muteBtn.addEventListener('click', () => {
       this._muted = !this._muted;
-      if (this._muted) {
-        this.audio.setVolume(0);
-      } else {
+      this.audio.setMuted(this._muted);
+      if (!this._muted) {
         this.audio.setVolume(parseFloat(volumeEl.value));
       }
       this._updateMuteButton();
@@ -869,6 +871,14 @@ export class UI {
         this._showToast('Paste failed — invalid JSON or clipboard denied');
       }
     }, sig);
+  }
+
+  _showLoading() {
+    document.getElementById('loading-overlay')?.classList.remove('hidden');
+  }
+
+  _hideLoading() {
+    document.getElementById('loading-overlay')?.classList.add('hidden');
   }
 
   _showToast(message) {
