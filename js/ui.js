@@ -631,12 +631,14 @@ export class UI {
   _updateMuteButton() {
     const btn = document.getElementById('btn-mute');
     btn.innerHTML = this._muted ? '&#128263;' : '&#128264;';
+    btn.setAttribute('aria-label', this._muted ? 'Unmute' : 'Mute');
     btn.classList.toggle('active', !this._muted);
   }
 
   _updatePlayPauseButton(isPlaying) {
     const btn = document.getElementById('btn-playpause');
     btn.innerHTML = isPlaying ? '&#9646;&#9646;' : '&#9655;';
+    btn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
   }
 
   // --- Timeline Scrubber ---

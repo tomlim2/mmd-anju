@@ -31,8 +31,16 @@
       --track: #3a3a3a;
       --thumb: #888;
       --thumb-hover: #aaa;
+      --text-bright: #fff;
       --font-xs: 10px;
       --radius-sm: 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -71,6 +79,7 @@
       left: 0;
       right: 0;
       display: flex;
+      flex-wrap: wrap;
       gap: 10px;
       align-items: center;
       padding: 10px 14px;
@@ -89,7 +98,7 @@
     #top-bar .title-select {
       background: none;
       border: none;
-      color: #fff;
+      color: var(--text-bright);
       font-size: 14px;
       font-weight: 500;
       font-family: inherit;
@@ -265,6 +274,10 @@
       margin-left: 4px;
     }
 
+    @media (pointer: coarse) {
+      #volume { width: 52px; opacity: 1; margin-left: 4px; }
+    }
+
     /* Time display */
     .time-display {
       font-size: 12px;
@@ -432,13 +445,13 @@
 <body>
   <canvas id="canvas"></canvas>
 
-  <div id="title">MMD Player</div>
+  <h1 id="title">MMD Player</h1>
 
   <!-- Top Bar: title + settings -->
   <div id="top-bar">
-    <select id="select-song" class="title-select" disabled><option value="">Song</option></select>
+    <select id="select-song" class="title-select" aria-label="Song" disabled><option value="">Song</option></select>
     <div class="top-sep"></div>
-    <select id="select-pmx" class="title-select" disabled><option value="">PMX</option></select>
+    <select id="select-pmx" class="title-select" aria-label="Model" disabled><option value="">PMX</option></select>
     <span id="loading-status"></span>
     <div class="top-sep"></div>
     <label><input type="checkbox" id="chk-rise" checked> Rise</label>
@@ -492,12 +505,12 @@
       <div id="tl-thumb"></div>
     </div>
     <div id="player-controls">
-      <button id="btn-prev" title="Previous (P)">&#9198;</button>
-      <button id="btn-playpause" title="Play/Pause (Space)">&#9655;</button>
-      <button id="btn-next" title="Next (N)">&#9197;</button>
+      <button id="btn-prev" title="Previous (P)" aria-label="Previous">&#9198;</button>
+      <button id="btn-playpause" title="Play/Pause (Space)" aria-label="Play">&#9655;</button>
+      <button id="btn-next" title="Next (N)" aria-label="Next">&#9197;</button>
       <div id="volume-group">
-        <button id="btn-mute" title="Mute (M)">&#128263;</button>
-        <input type="range" id="volume" min="0" max="1" step="0.01" value="0.5">
+        <button id="btn-mute" title="Mute (M)" aria-label="Mute">&#128263;</button>
+        <input type="range" id="volume" aria-label="Volume" min="0" max="1" step="0.01" value="0.5">
       </div>
       <span class="time-display"><span id="tl-current">0:00</span> / <span id="tl-total">0:00</span></span>
     </div>
