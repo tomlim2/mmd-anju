@@ -30,7 +30,7 @@ const WIND_RISE_BOOST = 6.0;   // big upward surge on impulse
 const WIND_RADIUS = 10;        // effective impulse radius
 
 // Tunable defaults
-const DEFAULTS = { speed: 0.5, wind: WIND_STRENGTH, size: 0.1, life: LIFETIME };
+const DEFAULTS = { speed: 0.5, wind: WIND_STRENGTH, size: 0.1, life: LIFETIME, radius: WIND_RADIUS };
 
 export class RisingLightEffect {
   static DEFAULTS = DEFAULTS;
@@ -43,6 +43,7 @@ export class RisingLightEffect {
     this._wind = DEFAULTS.wind;
     this._size = DEFAULTS.size;
     this._life = DEFAULTS.life;
+    this._radius = DEFAULTS.radius;
 
     this._posArr = new Float32Array(MAX * 3);
     this._velArr = new Float32Array(MAX * 3); // per-particle velocity (x, y, z)
@@ -100,6 +101,8 @@ export class RisingLightEffect {
   set size(v) { this._size = v; }
   get life() { return this._life; }
   set life(v) { this._life = v; }
+  get radius() { return this._radius; }
+  set radius(v) { this._radius = v; }
 
   setEvents(events) {
     this._events = events;
@@ -163,7 +166,7 @@ export class RisingLightEffect {
       const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
       // Sharp falloff in 3D — 1/(1+(d/r)^4)
-      const r = dist / WIND_RADIUS;
+      const r = dist / this._radius;
       const falloff = 1 / (1 + r * r * r * r);
       const ws = this._wind;
       const wb = WIND_RISE_BOOST * (ws / WIND_STRENGTH);

@@ -298,6 +298,9 @@
       max-width: 450px;
       z-index: 20;
     }
+    @media (pointer: coarse) {
+      #debug-panel { display: none; }
+    }
     #debug-info {
       font-size: 11px;
       font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
@@ -340,8 +343,10 @@
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 12px;
       z-index: 15;
       pointer-events: none;
     }
@@ -354,7 +359,45 @@
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
+    #loading-text {
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+    }
     @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Play overlay */
+    #play-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 16;
+      cursor: pointer;
+    }
+    #play-overlay.hidden { display: none; }
+    #play-overlay .play-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.4);
+      border: 2px solid rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.15s;
+    }
+    #play-overlay .play-circle:hover {
+      background: rgba(0,0,0,0.6);
+      transform: scale(1.08);
+    }
+    #play-overlay .play-icon {
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 16px 0 16px 28px;
+      border-color: transparent transparent transparent rgba(255,255,255,0.8);
+      margin-left: 4px;
+    }
 
     /* WebGPU fallback */
     .fallback {
@@ -462,12 +505,38 @@
     }
     .fx-section .slider { height: 20px; }
     .fx-section .slider-label { min-width: 40px; }
+
+    /* Hide UI toggle */
+    #btn-hide-ui {
+      position: fixed;
+      top: 8px;
+      right: 8px;
+      z-index: 20;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: rgba(255,255,255,0.6);
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    #btn-hide-ui:hover { color: #fff; background: rgba(0,0,0,0.6); }
+    body.ui-hidden #top-bar,
+    body.ui-hidden #debug-panel,
+    body.ui-hidden #fx-panel,
+    body.ui-hidden #player-bar,
+    body.ui-hidden #title { display: none; }
+    body.ui-hidden #btn-hide-ui { opacity: 0.3; }
+    body.ui-hidden #btn-hide-ui:hover { opacity: 1; }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
 
-  <div id="loading-overlay"><div class="spinner"></div></div>
+  <div id="loading-overlay"><div class="spinner"></div><span id="loading-text">Loading...</span></div>
+  <div id="play-overlay" class="hidden"><div class="play-circle"><div class="play-icon"></div></div></div>
+  <button id="btn-hide-ui" title="Hide UI (H)" aria-label="Hide UI">UI</button>
   <h1 id="title">MMD Player</h1>
 
   <!-- Top Bar: title + settings -->
@@ -501,6 +570,7 @@
       <div class="slider"><span class="slider-label">Wind</span><input class="slider-track" type="range" id="rng-rise-wind" min="0" max="40" step="1" value="18"><input type="number" class="slider-val" id="val-rise-wind" value="18" min="0" max="40" step="1"></div>
       <div class="slider"><span class="slider-label">Size</span><input class="slider-track" type="range" id="rng-rise-size" min="0.1" max="2" step="0.05" value="0.1"><input type="number" class="slider-val" id="val-rise-size" value="0.10" min="0.1" max="2" step="0.05"></div>
       <div class="slider"><span class="slider-label">Life</span><input class="slider-track" type="range" id="rng-rise-life" min="1" max="30" step="0.5" value="12"><input type="number" class="slider-val" id="val-rise-life" value="12.0" min="1" max="30" step="0.5"></div>
+      <div class="slider"><span class="slider-label">Radius</span><input class="slider-track" type="range" id="rng-rise-radius" min="1" max="40" step="1" value="10"><input type="number" class="slider-val" id="val-rise-radius" value="10" min="1" max="40" step="1"></div>
     </div>
 
     <div class="fx-section" id="fx-fall">

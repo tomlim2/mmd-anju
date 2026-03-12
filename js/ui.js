@@ -30,6 +30,7 @@ export class UI {
     this._initTimeline();
     this._initFxSelectors();
     this._initKeyboard();
+    this._initHideUI();
     this._pmxReady.then(() => this._loadDefaultModel());
 
     this.audio.onEnded(() => this._playNextSample());
@@ -46,51 +47,29 @@ export class UI {
 
     try {
       // Wait for both PMX and first VMD to finish loading
+      this._setLoadingText('Loading model...');
       await Promise.all([
         this.loader.loadPMXFromPath(path),
         this._firstVmdReady,
       ]);
+      this._setLoadingText('Applying motion...');
       this.loader.commitPendingMesh();
       this._pmxPath = path;
       this._currentPmxEntry = defaultEntry || null;
       this._syncPmxSelect();
       document.getElementById('title').style.display = 'none';
 
-      // Apply pending VMD if autoplay already fetched one
+      // Apply VMD — _firstVmdReady resolved so _pendingVmd should be set
       if (this._pendingVmd) {
         await this._applyVmdToMesh(this._pendingVmd.vmdBlob);
         this._currentVmd = this._pendingVmd;
         this._pendingVmd = null;
-
-        if (this.animation.helper && this.animation.mesh) {
-          const t = this.audio.currentTime;
-          this.animation.seekTo(t);
-          this.riseFx.seekTo(t);
-          this.rippleFx.seekTo(t);
-        }
-        this.animation.playing = true;
-        this.loader.reveal();
-        this._hideLoading();
-        try {
-          await this.audio.audioElement.play();
-          this._updatePlayPauseButton(true);
-        } catch {
-          this.animation.playing = false;
-          this._updatePlayPauseButton(false);
-          const resume = () => {
-            this.audio.play();
-            this.animation.playing = true;
-            this._updatePlayPauseButton(true);
-            document.removeEventListener('click', resume);
-            document.removeEventListener('keydown', resume);
-          };
-          document.addEventListener('click', resume, { once: true });
-          document.addEventListener('keydown', resume, { once: true });
-        }
-      } else {
-        this.loader.reveal();
-        this._hideLoading();
       }
+
+      // Everything ready — show play button overlay
+      this.loader.reveal();
+      this._hideLoading();
+      this._showPlayOverlay();
 
       statusEl.textContent = '';
     } catch (err) {
@@ -152,7 +131,7 @@ export class UI {
   async _loadPmxFromSamplePath(pmxPath) {
     const statusEl = document.getElementById('loading-status');
     statusEl.textContent = 'Loading...';
-    this._showLoading();
+    this._showLoading('Loading model...');
 
     const savedTime = this.audio.currentTime;
 
@@ -160,6 +139,7 @@ export class UI {
       // Load new mesh in background (old model stays visible)
       await this.loader.loadPMXFromPath(pmxPath);
       // Swap: destroy old animation, commit new mesh, reapply VMD
+      this._setLoadingText('Applying motion...');
       this.animation.destroy();
       this.loader.commitPendingMesh();
       this._pmxPath = pmxPath;
@@ -179,7 +159,7 @@ export class UI {
   async _loadPmxFromZipPath(zipUrl) {
     const statusEl = document.getElementById('loading-status');
     statusEl.textContent = 'Loading...';
-    this._showLoading();
+    this._showLoading('Downloading ZIP...');
 
     const savedTime = this.audio.currentTime;
 
@@ -213,8 +193,10 @@ export class UI {
         blobs.set(path, new File([blob], path.split('/').pop()));
       }
 
+      this._setLoadingText('Loading model...');
       await this.loader.loadPMXFromBlobs(pmxFile, blobs);
       // Swap: destroy old animation, commit new mesh, reapply VMD
+      this._setLoadingText('Applying motion...');
       this.animation.destroy();
       this.loader.commitPendingMesh();
       this._pmxPath = targetPmx;
@@ -358,7 +340,6 @@ export class UI {
         this._pendingVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._currentVmd = null;
         // Audio playback deferred — _loadDefaultModel will play after mesh + VMD ready
-        this.audio.audioElement.play().catch(() => {});
       }
     } catch (err) {
       console.error('VMD load error:', err);
@@ -770,6 +751,7 @@ export class UI {
     wireSlider('rng-rise-wind', 'val-rise-wind', (v) => { this.riseFx.wind = v; });
     wireSlider('rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; });
     wireSlider('rng-rise-life', 'val-rise-life', (v) => { this.riseFx.life = v; });
+    wireSlider('rng-rise-radius', 'val-rise-radius', (v) => { this.riseFx.radius = v; });
 
     // Fall
     wireSlider('rng-fall-speed', 'val-fall-speed', (v) => { this.fallFx.speed = v; });
@@ -794,7 +776,7 @@ export class UI {
 
     // FX param getters & setters
     const fxParams = {
-      rise: () => ({ speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size, life: this.riseFx.life }),
+      rise: () => ({ speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size, life: this.riseFx.life, radius: this.riseFx.radius }),
       fall: () => ({ speed: this.fallFx.speed, size: this.fallFx.size }),
       ripple: () => ({ radius: this.rippleFx.radius, life: this.rippleFx.life }),
       mirror: () => ({ strength: this.mirrorFx.strength }),
@@ -804,7 +786,8 @@ export class UI {
       rise:   { speed: ['rng-rise-speed', 'val-rise-speed', (v) => { this.riseFx.speed = v; }],
                 wind:  ['rng-rise-wind', 'val-rise-wind', (v) => { this.riseFx.wind = v; }],
                 size:  ['rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; }],
-                life:  ['rng-rise-life', 'val-rise-life', (v) => { this.riseFx.life = v; }] },
+                life:  ['rng-rise-life', 'val-rise-life', (v) => { this.riseFx.life = v; }],
+                radius: ['rng-rise-radius', 'val-rise-radius', (v) => { this.riseFx.radius = v; }] },
       fall:   { speed: ['rng-fall-speed', 'val-fall-speed', (v) => { this.fallFx.speed = v; }],
                 size:  ['rng-fall-size', 'val-fall-size', (v) => { this.fallFx.size = v; }] },
       ripple: { radius: ['rng-ripple-radius', 'val-ripple-radius', (v) => { this.rippleFx.radius = v; }],
@@ -873,8 +856,59 @@ export class UI {
     }, sig);
   }
 
-  _showLoading() {
-    document.getElementById('loading-overlay')?.classList.remove('hidden');
+  _startPlaybackPoll() {
+    const tryPlay = () => {
+      if (!this.audio.audioElement) return;
+      this.audio.audioElement.play().catch(() => {});
+      // Check if audio actually started (paused === false)
+      setTimeout(() => {
+        if (this.audio.audioElement && !this.audio.audioElement.paused) {
+          clearInterval(this._playPollId);
+          this._playPollId = null;
+          this.animation.playing = true;
+          this.loader.reveal();
+          this._hideLoading();
+          this._updatePlayPauseButton(true);
+        }
+      }, 100);
+    };
+    tryPlay();
+    this._playPollId = setInterval(tryPlay, 1000);
+  }
+
+  _showPlayOverlay() {
+    const overlay = document.getElementById('play-overlay');
+    overlay.classList.remove('hidden');
+    overlay.addEventListener('click', () => {
+      overlay.classList.add('hidden');
+      this.animation.playing = true;
+      this._updatePlayPauseButton(true);
+      if (this.audio.audioElement) {
+        this.audio.play();
+      }
+    }, { once: true });
+  }
+
+  _initHideUI() {
+    document.getElementById('btn-hide-ui').addEventListener('click', () => {
+      this._toggleUI();
+    }, { signal: this._ac.signal });
+  }
+
+  _toggleUI() {
+    document.body.classList.toggle('ui-hidden');
+  }
+
+  _showLoading(msg) {
+    const el = document.getElementById('loading-overlay');
+    if (el) el.classList.remove('hidden');
+    const txt = document.getElementById('loading-text');
+    if (txt) txt.textContent = msg || 'Loading...';
+  }
+
+  _setLoadingText(msg) {
+    const txt = document.getElementById('loading-text');
+    if (txt) txt.textContent = msg;
   }
 
   _hideLoading() {
@@ -936,6 +970,9 @@ export class UI {
           break;
         case 'KeyP':
           this._playPrevSample();
+          break;
+        case 'KeyH':
+          this._toggleUI();
           break;
       }
     }, { signal: this._ac.signal });

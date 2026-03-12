@@ -46,6 +46,9 @@ function animate() {
         animation.update(audioDelta);
       }
       _lastAudioTime = audioTime;
+    } else if (animation.playing) {
+      // Audio not advancing (autoplay blocked / paused) — use wall clock
+      animation.update(wallDelta);
     }
   } else {
     animation.update(wallDelta);
