@@ -61,9 +61,7 @@ export function swapToToonMaterial(mesh) {
     toon.colorNode = Fn(() => {
       let color = baseColor;
       if (mapTex) color = color.mul(texture(mapTex).rgb);
-      const ndotl = clamp(dot(normalView, normalize(lightDir)), 0.0, 1.0);
-      const lit = step(threshold, ndotl);
-      return mix(color.mul(shadowTint), color, lit);
+      return color;
     })();
 
     mat.dispose();
