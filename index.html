@@ -516,18 +516,23 @@
       background: var(--surface);
       border-color: var(--text-dim);
     }
-    .fx-toggle-all {
-      font-size: 9px !important;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      padding: 2px 6px !important;
-      width: auto !important;
-      height: auto !important;
-      opacity: 1 !important;
-    }
-    .fx-toggle-all.off {
+    .fx-tree-root {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 700;
       color: var(--text);
-      background: rgba(255,255,255,0.1);
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 2px 0;
+    }
+    .fx-tree-root input[type="checkbox"] { margin: 0; }
+    .fx-tree-children {
+      padding-left: 6px;
+      border-left: 1px solid rgba(255,255,255,0.08);
+      margin-left: 5px;
     }
     .fx-toolbar {
       display: flex;
@@ -667,13 +672,11 @@
 
     <div class="fx-tab-content active" id="tab-vfx">
       <div class="fx-toolbar">
+        <label class="fx-tree-root"><input type="checkbox" id="chk-vfx-all" checked> VFX</label>
         <button class="fx-btn" id="fx-copy-all" title="Copy all FX"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button>
         <button class="fx-btn" id="fx-paste-all" title="Paste all FX"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h167q11-35 43-57.5t70-22.5q40 0 71.5 22.5T594-840h166q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560h-80v120H280v-120h-80v560Zm280-560q17 0 28.5-11.5T520-800q0-17-11.5-28.5T480-840q-17 0-28.5 11.5T440-800q0 17 11.5 28.5T480-760Z"/></svg></button>
       </div>
-      <div class="fx-toolbar">
-        <button class="fx-btn fx-toggle-all" id="btn-vfx-off" title="Toggle all VFX">OFF</button>
-      </div>
-
+      <div class="fx-tree-children">
       <div class="fx-section active" id="fx-rise">
         <div class="fx-section-title">Rise <label class="fx-chk"><input type="checkbox" id="chk-rise" checked></label> <button class="fx-btn fx-copy" data-fx="rise" title="Copy JSON"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button></div>
         <div class="slider"><span class="slider-label">Speed</span><input class="slider-track" type="range" id="rng-rise-speed" min="0.5" max="8" step="0.1" value="0.5"><input type="number" class="slider-val" id="val-rise-speed" value="0.5" min="0.5" max="8" step="0.1"></div>
@@ -699,25 +702,28 @@
         <div class="fx-section-title">Mirror <label class="fx-chk"><input type="checkbox" id="chk-mirror" checked></label> <button class="fx-btn fx-copy" data-fx="mirror" title="Copy JSON"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button></div>
         <div class="slider"><span class="slider-label">Reflect</span><input class="slider-track" type="range" id="rng-mirror-strength" min="0" max="100" step="1" value="40"><input type="number" class="slider-val" id="val-mirror-strength" value="40" min="0" max="100" step="1"></div>
       </div>
+      </div>
     </div>
 
     <div class="fx-tab-content" id="tab-pp">
       <div class="fx-toolbar">
+        <label class="fx-tree-root"><input type="checkbox" id="chk-pp-all"> PP</label>
         <button class="fx-btn" id="pp-copy-all" title="Copy all PP"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button>
         <button class="fx-btn" id="pp-paste-all" title="Paste all PP"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M200-120q-33 0-56.5-23.5T120-200v-560q0-33 23.5-56.5T200-840h167q11-35 43-57.5t70-22.5q40 0 71.5 22.5T594-840h166q33 0 56.5 23.5T840-760v560q0 33-23.5 56.5T760-120H200Zm0-80h560v-560h-80v120H280v-120h-80v560Zm280-560q17 0 28.5-11.5T520-800q0-17-11.5-28.5T480-840q-17 0-28.5 11.5T440-800q0 17 11.5 28.5T480-760Z"/></svg></button>
       </div>
-      <div class="fx-toolbar">
-        <button class="fx-btn fx-toggle-all" id="btn-pp-off" title="Toggle all PP">OFF</button>
+      <div class="fx-toolbar" id="pp-tonemapping-row">
+        <span style="font-size:10px;font-weight:600;color:var(--text);text-transform:uppercase">Tone Mapping</span>
         <select id="sel-tonemapping" class="fx-select" title="Tone mapping (when PP off)">
-          <option value="aces" selected>ACES</option>
+          <option value="aces">ACES</option>
           <option value="agx">AgX</option>
           <option value="neutral">Neutral</option>
           <option value="reinhard">Reinhard</option>
           <option value="cineon">Cineon</option>
-          <option value="linear">Linear</option>
+          <option value="linear" selected>Linear</option>
           <option value="none">None</option>
         </select>
       </div>
+      <div id="pp-sections" class="fx-tree-children" style="display:none">
       <div class="fx-section active" id="fx-bloom">
         <div class="fx-section-title">Bloom <label class="fx-chk"><input type="checkbox" id="chk-bloom"></label> <button class="fx-btn fx-copy" data-pp="bloom" title="Copy JSON"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button></div>
         <div class="slider"><span class="slider-label">Strength</span><input class="slider-track" type="range" id="rng-bloom-strength" min="0" max="2" step="0.05" value="0"><input type="number" class="slider-val" id="val-bloom-strength" value="0" min="0" max="2" step="0.05"></div>
@@ -756,6 +762,7 @@
       <div class="fx-section active" id="fx-grain">
         <div class="fx-section-title">Film Grain <label class="fx-chk"><input type="checkbox" id="chk-grain"></label> <button class="fx-btn fx-copy" data-pp="grain" title="Copy JSON"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg></button></div>
         <div class="slider"><span class="slider-label">Amount</span><input class="slider-track" type="range" id="rng-grain-amount" min="0" max="0.15" step="0.005" value="0"><input type="number" class="slider-val" id="val-grain-amount" value="0" min="0" max="0.15" step="0.005"></div>
+      </div>
       </div>
     </div>
   </div>

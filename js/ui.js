@@ -723,36 +723,38 @@ export class UI {
       }, sig);
     }
 
-    // Per-tab toggle OFF/ON buttons
-    const setupTabToggle = (btnId, containerId, onToggle) => {
-      const btn = document.getElementById(btnId);
+    // Master toggle checkboxes
+    const setupMasterToggle = (masterChkId, containerId, onToggle) => {
+      const masterChk = document.getElementById(masterChkId);
       let saved = null;
-      btn.addEventListener('click', () => {
-        const chks = document.querySelectorAll(`#${containerId} input[type="checkbox"]`);
-        if (!saved) {
+      masterChk.addEventListener('change', () => {
+        const chks = document.querySelectorAll(`#${containerId} .fx-section input[type="checkbox"]`);
+        if (!masterChk.checked) {
           saved = new Map();
           for (const chk of chks) {
             saved.set(chk.id, chk.checked);
             if (chk.checked) { chk.checked = false; chk.dispatchEvent(new Event('change')); }
           }
-          btn.textContent = 'ON';
-          btn.classList.add('off');
-          onToggle?.(true);
-        } else {
-          for (const chk of chks) {
-            const was = saved.get(chk.id) ?? false;
-            if (chk.checked !== was) { chk.checked = was; chk.dispatchEvent(new Event('change')); }
-          }
-          btn.textContent = 'OFF';
-          btn.classList.remove('off');
-          saved = null;
           onToggle?.(false);
+        } else {
+          if (saved) {
+            for (const chk of chks) {
+              const was = saved.get(chk.id) ?? false;
+              if (chk.checked !== was) { chk.checked = was; chk.dispatchEvent(new Event('change')); }
+            }
+            saved = null;
+          }
+          onToggle?.(true);
         }
       }, sig);
     };
-    setupTabToggle('btn-vfx-off', 'tab-vfx');
-    setupTabToggle('btn-pp-off', 'tab-pp', (allOff) => {
-      this.mmdScene.setPostProcessEnabled(!allOff);
+    setupMasterToggle('chk-vfx-all', 'tab-vfx');
+    const tmRow = document.getElementById('pp-tonemapping-row');
+    const ppSections = document.getElementById('pp-sections');
+    setupMasterToggle('chk-pp-all', 'tab-pp', (on) => {
+      this.mmdScene.setPostProcessEnabled(on);
+      tmRow.style.display = on ? 'none' : '';
+      ppSections.style.display = on ? '' : 'none';
     });
 
     // Tone mapping dropdown (applies when PP is off)
@@ -1027,6 +1029,8 @@ export class UI {
       document.getElementById('pp-copy-all')?.addEventListener('click', async () => {
         const all = {};
         for (const [key, getter] of Object.entries(ppParams)) all[key] = getter();
+        all.toneMapping = document.getElementById('sel-tonemapping').value;
+        all.ppOff = !document.getElementById('chk-pp-all').checked;
         await navigator.clipboard.writeText(JSON.stringify(all, null, 2));
         this._showToast('PP copied');
         flashCopied(document.getElementById('pp-copy-all'));
@@ -1048,6 +1052,16 @@ export class UI {
             for (const section of Object.keys(ppSliderMap)) {
               if (applyPpValues(section, data)) { applied = true; break; }
             }
+          }
+          if (data.toneMapping) {
+            const sel = document.getElementById('sel-tonemapping');
+            sel.value = data.toneMapping;
+            sel.dispatchEvent(new Event('change'));
+          }
+          if (data.ppOff != null) {
+            const chk = document.getElementById('chk-pp-all');
+            const shouldBeOn = !data.ppOff;
+            if (chk.checked !== shouldBeOn) { chk.checked = shouldBeOn; chk.dispatchEvent(new Event('change')); }
           }
           this._showToast(applied ? 'PP pasted' : 'No matching PP data');
         } catch {

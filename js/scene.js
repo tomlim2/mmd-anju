@@ -25,8 +25,8 @@ export class MMDScene {
     this.controls = null;
     this.clock = new Clock();
     this._ac = new AbortController();
-    this._ppEnabled = true;
-    this._toneMappingKey = 'aces';
+    this._ppEnabled = false;
+    this._toneMappingKey = 'linear';
   }
 
   async init() {
@@ -59,6 +59,7 @@ export class MMDScene {
     this.scene.add(directional);
 
     this._resize();
+    this._applyToneMapping();
     window.addEventListener('resize', () => this._resize(), { signal: this._ac.signal });
   }
 
