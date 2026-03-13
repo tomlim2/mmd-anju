@@ -3,15 +3,21 @@ import {
   pass,
   uniform, screenUV,
   vec3, float,
-  length, mix,
+  length, mix, normalize,
+  dot, fract, sin, timerLocal,
 } from 'three/tsl';
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 
 const DEFAULTS = {
-  bloom: { strength: 0.1, radius: 0.05, threshold: 0.75 },
-  vignette: { intensity: 0.8 },
-  aces: { exposure: 1.0 },
+  bloom: { strength: 0, radius: 0.1, threshold: 0.2 },
+  vignette: { intensity: 0 },
+  aces: { exposure: 0.5 },
   temp: { value: 0 },
+  ca: { intensity: 0 },
+  grain: { amount: 0 },
+  saturation: { value: 1.15 },
+  bw: { mix: 0 },
+  contrast: { value: 1.02, brightness: 0 },
 };
 
 export class PostProcess {
@@ -20,39 +26,42 @@ export class PostProcess {
   constructor(renderer, scene, camera) {
     this._pp = new PostProcessing(renderer);
 
-    // --- Node graph ---
+    // --- Shared uniforms (used by both chains) ---
+    this.caIntensity = uniform(DEFAULTS.ca.intensity);
+    this.acesMix = uniform(1.0);
+    this.acesExposure = uniform(DEFAULTS.aces.exposure);
+    this.temperature = uniform(0.0);
+    this.saturation = uniform(DEFAULTS.saturation.value);
+    this.bwMix = uniform(DEFAULTS.bw.mix);
+    this.contrast = uniform(DEFAULTS.contrast.value);
+    this.brightness = uniform(DEFAULTS.contrast.brightness);
+    this.grainAmount = uniform(DEFAULTS.grain.amount);
+    this.vignetteIntensity = uniform(DEFAULTS.vignette.intensity);
+
+    // --- Scene pass + CA (shared input) ---
     const scenePass = pass(scene, camera);
     const sceneTex = scenePass.getTextureNode('output');
 
-    // 1. Bloom — pass numbers, access .strength/.radius/.threshold on the node
-    const bloomPass = bloom(sceneTex, DEFAULTS.bloom.strength, DEFAULTS.bloom.radius, DEFAULTS.bloom.threshold);
-    this._bloomNode = bloomPass;
-    let output = sceneTex.add(bloomPass);
+    const caDir = screenUV.sub(0.5);
+    const caAmount = length(caDir).mul(this.caIntensity);
+    const caNorm = normalize(caDir);
+    const uvR = screenUV.add(caNorm.mul(caAmount));
+    const uvB = screenUV.sub(caNorm.mul(caAmount));
+    const caOutput = vec3(
+      sceneTex.uv(uvR).x,
+      sceneTex.y,
+      sceneTex.uv(uvB).z,
+    );
 
-    // 2. ACES Tone Mapping
-    this.acesMix = uniform(0.0);
-    this.acesExposure = uniform(DEFAULTS.aces.exposure);
-    const exposed = output.mul(this.acesExposure);
-    const acesA = exposed.mul(exposed.mul(2.51).add(0.03));
-    const acesB = exposed.mul(exposed.mul(2.43).add(0.59)).add(0.14);
-    const tonemapped = acesA.div(acesB).clamp(0, 1);
-    output = mix(output, tonemapped, this.acesMix);
+    // --- Bloom node (only included in bloom chain) ---
+    this._bloomNode = bloom(sceneTex, DEFAULTS.bloom.strength, DEFAULTS.bloom.radius, DEFAULTS.bloom.threshold);
 
-    // 3. Color Temperature (warm: +R -B, cool: -R +B)
-    this.temperature = uniform(0.0);
-    output = output.add(vec3(
-      this.temperature.mul(0.08),
-      this.temperature.mul(0.02),
-      this.temperature.mul(-0.08),
-    )).clamp(0, 1);
+    // --- Build two output chains: with/without bloom ---
+    this._outputWithBloom = this._buildChain(caOutput.add(this._bloomNode));
+    this._outputWithoutBloom = this._buildChain(caOutput);
 
-    // 4. Vignette (last)
-    this.vignetteIntensity = uniform(DEFAULTS.vignette.intensity);
-    const dist = length(screenUV.sub(0.5));
-    const vig = float(1.0).sub(dist.mul(2.0).pow(2.5).mul(this.vignetteIntensity));
-    output = output.mul(vig.clamp(0, 1));
-
-    this._pp.outputNode = output;
+    this._bloomActive = false;
+    this._pp.outputNode = this._outputWithoutBloom;
 
     // --- Saved values for enable/disable ---
     this._saved = {
@@ -60,7 +69,55 @@ export class PostProcess {
       vignetteIntensity: DEFAULTS.vignette.intensity,
       acesExposure: DEFAULTS.aces.exposure,
       temperature: DEFAULTS.temp.value,
+      caIntensity: DEFAULTS.ca.intensity,
+      grainAmount: DEFAULTS.grain.amount,
+      saturation: DEFAULTS.saturation.value,
+      bwMix: DEFAULTS.bw.mix,
+      contrast: DEFAULTS.contrast.value,
+      brightness: DEFAULTS.contrast.brightness,
     };
+  }
+
+  _buildChain(startOutput) {
+    let output = startOutput;
+
+    // ACES Tone Mapping
+    const exposed = output.mul(this.acesExposure);
+    const acesA = exposed.mul(exposed.mul(2.51).add(0.03));
+    const acesB = exposed.mul(exposed.mul(2.43).add(0.59)).add(0.14);
+    const tonemapped = acesA.div(acesB).clamp(0, 1);
+    output = mix(output, tonemapped, this.acesMix);
+
+    // Color Temperature
+    output = output.add(vec3(
+      this.temperature.mul(0.08),
+      this.temperature.mul(0.02),
+      this.temperature.mul(-0.08),
+    )).clamp(0, 1);
+
+    // Saturation
+    const luma = output.x.mul(0.2126).add(output.y.mul(0.7152)).add(output.z.mul(0.0722));
+    const gray = vec3(luma, luma, luma);
+    output = mix(gray, output, this.saturation).clamp(0, 1);
+
+    // Black & White
+    const bwGray = output.x.mul(0.299).add(output.y.mul(0.587)).add(output.z.mul(0.114));
+    output = mix(output, vec3(bwGray, bwGray, bwGray), this.bwMix);
+
+    // Contrast / Brightness
+    output = output.sub(0.5).mul(this.contrast).add(0.5).add(this.brightness).clamp(0, 1);
+
+    // Film Grain (animated noise)
+    const seed = dot(screenUV, vec3(12.9898, 78.233, 45.164)).add(timerLocal());
+    const noise = fract(sin(seed).mul(43758.5453)).sub(0.5).mul(this.grainAmount);
+    output = output.add(noise).clamp(0, 1);
+
+    // Vignette (last)
+    const dist = length(screenUV.sub(0.5));
+    const vig = float(1.0).sub(dist.mul(2.0).pow(2.5).mul(this.vignetteIntensity));
+    output = output.mul(vig.clamp(0, 1));
+
+    return output;
   }
 
   // --- Bloom accessors (via BloomNode internal uniforms) ---
@@ -70,7 +127,11 @@ export class PostProcess {
 
   // --- Enable / Disable ---
   setBloomEnabled(on) {
-    this._bloomNode.strength.value = on ? this._saved.bloomStrength : 0;
+    this._bloomActive = on;
+    this._pp.outputNode = on ? this._outputWithBloom : this._outputWithoutBloom;
+    if (on) {
+      this._bloomNode.strength.value = this._saved.bloomStrength;
+    }
   }
 
   setVignetteEnabled(on) {
@@ -83,6 +144,28 @@ export class PostProcess {
 
   setTempEnabled(on) {
     this.temperature.value = on ? this._saved.temperature : 0;
+  }
+
+  setCaEnabled(on) {
+    this.caIntensity.value = on ? this._saved.caIntensity : 0;
+  }
+
+  setGrainEnabled(on) {
+    this.grainAmount.value = on ? this._saved.grainAmount : 0;
+  }
+
+  setSaturationEnabled(on) {
+    this.saturation.value = on ? this._saved.saturation : 1.0;
+  }
+
+  setBwEnabled(on) {
+    if (on && this._saved.bwMix === 0) this._saved.bwMix = 1.0;
+    this.bwMix.value = on ? this._saved.bwMix : 0;
+  }
+
+  setContrastEnabled(on) {
+    this.contrast.value = on ? this._saved.contrast : 1.0;
+    this.brightness.value = on ? this._saved.brightness : 0;
   }
 
   render() {

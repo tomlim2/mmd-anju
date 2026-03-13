@@ -713,27 +713,54 @@ export class UI {
   _initFxSelectors() {
     const sig = { signal: this._ac.signal };
 
-    // Tab switching (VFX / PP)
-    for (const tab of document.querySelectorAll('.fx-tab')) {
+    // Tab switching (VFX / PP) — skip master toggle
+    for (const tab of document.querySelectorAll('.fx-tab[data-tab]')) {
       tab.addEventListener('click', () => {
-        document.querySelectorAll('.fx-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.fx-tab[data-tab]').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.fx-tab-content').forEach(c => c.classList.remove('active'));
         tab.classList.add('active');
         document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
       }, sig);
     }
 
-    // Toggle checkbox → effect enabled + panel section visibility
+    // Per-tab toggle OFF/ON buttons
+    const setupTabToggle = (btnId, containerId) => {
+      const btn = document.getElementById(btnId);
+      let saved = null;
+      btn.addEventListener('click', () => {
+        const chks = document.querySelectorAll(`#${containerId} input[type="checkbox"]`);
+        if (!saved) {
+          saved = new Map();
+          for (const chk of chks) {
+            saved.set(chk.id, chk.checked);
+            if (chk.checked) { chk.checked = false; chk.dispatchEvent(new Event('change')); }
+          }
+          btn.textContent = 'ON';
+          btn.classList.add('off');
+        } else {
+          for (const chk of chks) {
+            const was = saved.get(chk.id) ?? false;
+            if (chk.checked !== was) { chk.checked = was; chk.dispatchEvent(new Event('change')); }
+          }
+          btn.textContent = 'OFF';
+          btn.classList.remove('off');
+          saved = null;
+        }
+      }, sig);
+    };
+    setupTabToggle('btn-vfx-off', 'tab-vfx');
+    setupTabToggle('btn-pp-off', 'tab-pp');
+
+    // Toggle checkbox → effect enabled (section always visible)
     const fxMap = [
-      { chk: 'chk-rise', fx: this.riseFx, section: 'fx-rise' },
-      { chk: 'chk-fall', fx: this.fallFx, section: 'fx-fall' },
-      { chk: 'chk-ripple', fx: this.rippleFx, section: 'fx-ripple' },
-      { chk: 'chk-mirror', fx: this.mirrorFx, section: 'fx-mirror' },
+      { chk: 'chk-rise', fx: this.riseFx },
+      { chk: 'chk-fall', fx: this.fallFx },
+      { chk: 'chk-ripple', fx: this.rippleFx },
+      { chk: 'chk-mirror', fx: this.mirrorFx },
     ];
-    for (const { chk, fx, section } of fxMap) {
+    for (const { chk, fx } of fxMap) {
       document.getElementById(chk).addEventListener('change', (e) => {
         fx.enabled = e.target.checked;
-        document.getElementById(section).classList.toggle('active', e.target.checked);
       }, sig);
     }
 
@@ -777,15 +804,25 @@ export class UI {
     const pp = this.postProcess;
     if (pp) {
       const ppMap = [
-        { chk: 'chk-bloom', section: 'fx-bloom', toggle: (on) => pp.setBloomEnabled(on) },
-        { chk: 'chk-vignette', section: 'fx-vignette', toggle: (on) => pp.setVignetteEnabled(on) },
-        { chk: 'chk-aces', section: 'fx-aces', toggle: (on) => pp.setAcesEnabled(on) },
-        { chk: 'chk-temp', section: 'fx-temp', toggle: (on) => pp.setTempEnabled(on) },
+        { chk: 'chk-bloom', toggle: (on) => pp.setBloomEnabled(on) },
+        { chk: 'chk-vignette', toggle: (on) => pp.setVignetteEnabled(on) },
+        { chk: 'chk-aces', toggle: (on) => pp.setAcesEnabled(on) },
+        { chk: 'chk-temp', toggle: (on) => pp.setTempEnabled(on) },
+        { chk: 'chk-ca', toggle: (on) => pp.setCaEnabled(on) },
+        { chk: 'chk-grain', toggle: (on) => pp.setGrainEnabled(on) },
+        { chk: 'chk-bw', toggle: (on) => {
+          pp.setBwEnabled(on);
+          if (on) {
+            document.getElementById('rng-bw-mix').value = pp.bwMix.value;
+            document.getElementById('val-bw-mix').value = pp.bwMix.value.toFixed(2);
+          }
+        }},
+        { chk: 'chk-saturation', toggle: (on) => pp.setSaturationEnabled(on) },
+        { chk: 'chk-contrast', toggle: (on) => pp.setContrastEnabled(on) },
       ];
-      for (const { chk, section, toggle } of ppMap) {
+      for (const { chk, toggle } of ppMap) {
         document.getElementById(chk).addEventListener('change', (e) => {
           toggle(e.target.checked);
-          document.getElementById(section).classList.toggle('active', e.target.checked);
         }, sig);
       }
 
@@ -795,6 +832,12 @@ export class UI {
       wireSlider('rng-vignette-intensity', 'val-vignette-intensity', (v) => { pp.vignetteIntensity.value = v; pp._saved.vignetteIntensity = v; });
       wireSlider('rng-aces-exposure', 'val-aces-exposure', (v) => { pp.acesExposure.value = v; });
       wireSlider('rng-temp', 'val-temp', (v) => { pp.temperature.value = v; pp._saved.temperature = v; });
+      wireSlider('rng-ca-intensity', 'val-ca-intensity', (v) => { pp.caIntensity.value = v; pp._saved.caIntensity = v; });
+      wireSlider('rng-grain-amount', 'val-grain-amount', (v) => { pp.grainAmount.value = v; pp._saved.grainAmount = v; });
+      wireSlider('rng-bw-mix', 'val-bw-mix', (v) => { pp.bwMix.value = v; pp._saved.bwMix = v; });
+      wireSlider('rng-saturation', 'val-saturation', (v) => { pp.saturation.value = v; pp._saved.saturation = v; });
+      wireSlider('rng-contrast', 'val-contrast', (v) => { pp.contrast.value = v; pp._saved.contrast = v; });
+      wireSlider('rng-brightness', 'val-brightness', (v) => { pp.brightness.value = v; pp._saved.brightness = v; });
     }
 
     // SVG icon markup
@@ -808,11 +851,12 @@ export class UI {
     };
 
     // FX param getters & setters
+    const fxChkMap = { rise: 'chk-rise', fall: 'chk-fall', ripple: 'chk-ripple', mirror: 'chk-mirror' };
     const fxParams = {
-      rise: () => ({ speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size, life: this.riseFx.life, radius: this.riseFx.radius }),
-      fall: () => ({ speed: this.fallFx.speed, size: this.fallFx.size }),
-      ripple: () => ({ radius: this.rippleFx.radius, life: this.rippleFx.life }),
-      mirror: () => ({ strength: this.mirrorFx.strength }),
+      rise: () => ({ enabled: document.getElementById('chk-rise').checked, speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size, life: this.riseFx.life, radius: this.riseFx.radius }),
+      fall: () => ({ enabled: document.getElementById('chk-fall').checked, speed: this.fallFx.speed, size: this.fallFx.size }),
+      ripple: () => ({ enabled: document.getElementById('chk-ripple').checked, radius: this.rippleFx.radius, life: this.rippleFx.life }),
+      mirror: () => ({ enabled: document.getElementById('chk-mirror').checked, strength: this.mirrorFx.strength }),
     };
 
     const sliderMap = {
@@ -832,6 +876,11 @@ export class UI {
       const map = sliderMap[section];
       if (!map) return false;
       let applied = false;
+      if (data.enabled != null && fxChkMap[section]) {
+        const chk = document.getElementById(fxChkMap[section]);
+        if (chk.checked !== data.enabled) { chk.checked = data.enabled; chk.dispatchEvent(new Event('change')); }
+        applied = true;
+      }
       for (const [key, [rngId, valId, setter]] of Object.entries(map)) {
         const v = data[key];
         if (v == null) continue;
@@ -888,11 +937,17 @@ export class UI {
 
     // --- PP param getters & slider map ---
     if (pp) {
+      const ppChkMap = { bloom: 'chk-bloom', vignette: 'chk-vignette', aces: 'chk-aces', temp: 'chk-temp', ca: 'chk-ca', bw: 'chk-bw', grain: 'chk-grain', saturation: 'chk-saturation', contrast: 'chk-contrast' };
       const ppParams = {
-        bloom: () => ({ strength: pp.bloomStrength.value, radius: pp.bloomRadius.value, threshold: pp.bloomThreshold.value }),
-        vignette: () => ({ intensity: pp.vignetteIntensity.value }),
-        aces: () => ({ exposure: pp.acesExposure.value }),
-        temp: () => ({ value: pp.temperature.value }),
+        bloom: () => ({ enabled: document.getElementById('chk-bloom').checked, strength: pp.bloomStrength.value, radius: pp.bloomRadius.value, threshold: pp.bloomThreshold.value }),
+        vignette: () => ({ enabled: document.getElementById('chk-vignette').checked, intensity: pp.vignetteIntensity.value }),
+        aces: () => ({ enabled: document.getElementById('chk-aces').checked, exposure: pp.acesExposure.value }),
+        temp: () => ({ enabled: document.getElementById('chk-temp').checked, value: pp.temperature.value }),
+        ca: () => ({ enabled: document.getElementById('chk-ca').checked, intensity: pp.caIntensity.value }),
+        bw: () => ({ enabled: document.getElementById('chk-bw').checked, mix: pp.bwMix.value }),
+        grain: () => ({ enabled: document.getElementById('chk-grain').checked, amount: pp.grainAmount.value }),
+        saturation: () => ({ enabled: document.getElementById('chk-saturation').checked, value: pp.saturation.value }),
+        contrast: () => ({ enabled: document.getElementById('chk-contrast').checked, contrast: pp.contrast.value, brightness: pp.brightness.value }),
       };
 
       const ppSliderMap = {
@@ -910,12 +965,33 @@ export class UI {
         temp: {
           value: ['rng-temp', 'val-temp', (v) => { pp.temperature.value = v; pp._saved.temperature = v; }],
         },
+        ca: {
+          intensity: ['rng-ca-intensity', 'val-ca-intensity', (v) => { pp.caIntensity.value = v; pp._saved.caIntensity = v; }],
+        },
+        bw: {
+          mix: ['rng-bw-mix', 'val-bw-mix', (v) => { pp.bwMix.value = v; pp._saved.bwMix = v; }],
+        },
+        grain: {
+          amount: ['rng-grain-amount', 'val-grain-amount', (v) => { pp.grainAmount.value = v; pp._saved.grainAmount = v; }],
+        },
+        saturation: {
+          value: ['rng-saturation', 'val-saturation', (v) => { pp.saturation.value = v; pp._saved.saturation = v; }],
+        },
+        contrast: {
+          contrast: ['rng-contrast', 'val-contrast', (v) => { pp.contrast.value = v; pp._saved.contrast = v; }],
+          brightness: ['rng-brightness', 'val-brightness', (v) => { pp.brightness.value = v; pp._saved.brightness = v; }],
+        },
       };
 
       const applyPpValues = (section, data) => {
         const map = ppSliderMap[section];
         if (!map) return false;
         let applied = false;
+        if (data.enabled != null && ppChkMap[section]) {
+          const chk = document.getElementById(ppChkMap[section]);
+          if (chk.checked !== data.enabled) { chk.checked = data.enabled; chk.dispatchEvent(new Event('change')); }
+          applied = true;
+        }
         for (const [key, [rngId, valId, setter]] of Object.entries(map)) {
           const v = data[key];
           if (v == null) continue;
