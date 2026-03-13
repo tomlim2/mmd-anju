@@ -622,11 +622,7 @@
 
   <script>
     (function() {
-      const issues = [];
-      if (!navigator.gpu) issues.push('webgpu');
-      if (!window.SharedArrayBuffer) issues.push('sab');
-
-      if (issues.length) {
+      if (!navigator.gpu) {
         const modal = document.createElement('div');
         modal.id = 'compat-modal';
 
@@ -639,16 +635,9 @@
         else if (/Chrome/i.test(ua)) browser = isTouch ? 'Chrome (Mobile)' : 'Chrome';
         else if (/Safari/i.test(ua)) browser = isTouch ? 'Safari (iOS)' : 'Safari';
 
-        const missing = [];
-        if (issues.includes('webgpu')) missing.push('WebGPU');
-        if (issues.includes('sab')) missing.push('SharedArrayBuffer');
-
         modal.innerHTML = `<div class="compat-box">
           <h2>Not Supported</h2>
-          <p>${browser} does not support features required by this app.</p>
-          <div class="compat-list">
-            Missing: ${missing.join(', ')}
-          </div>
+          <p>${browser} does not support WebGPU, which is required by this app.</p>
           <p>Supported browsers:</p>
           <div class="compat-list">
             <span>Chrome / Edge</span> 113+<br>
