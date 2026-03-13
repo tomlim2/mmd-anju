@@ -566,6 +566,7 @@ export class UI {
     this._muted = true;
     this._prevVolume = parseFloat(volumeEl.value);
     this.audio.setMuted(true);
+    this._updateMuteButton();
 
     btn.addEventListener('click', () => {
       // Dismiss play overlay if visible

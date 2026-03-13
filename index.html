@@ -398,24 +398,17 @@
       transition: background 0.2s, transform 0.15s;
       position: relative;
     }
-    #play-overlay .play-circle::before,
-    #play-overlay .play-circle::after {
+    #play-overlay .play-circle::before {
       content: '';
       position: absolute;
-      width: 6px;
-      height: 6px;
+      inset: -4px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.7);
-      top: calc(50% - 3px);
-      left: calc(50% - 3px);
-      animation: orbitDot 1.5s linear infinite;
+      border: 2px solid rgba(255,255,255,0.3);
+      animation: pulse-ring 2s ease-out infinite;
     }
-    #play-overlay .play-circle::after {
-      animation-delay: -1.5s;
-    }
-    @keyframes orbitDot {
-      from { transform: rotate(0deg) translateX(42px) rotate(0deg); }
-      to { transform: rotate(360deg) translateX(42px) rotate(-360deg); }
+    @keyframes pulse-ring {
+      0% { transform: scale(1); opacity: 0.6; }
+      100% { transform: scale(1.4); opacity: 0; }
     }
     #play-overlay .play-circle:hover {
       background: rgba(0,0,0,0.7);
@@ -658,7 +651,7 @@
   <div id="top-bar">
     <select id="select-song" class="title-select" aria-label="Song" disabled><option value="">Song</option></select>
     <div class="top-sep"></div>
-    <select id="select-pmx" class="title-select" aria-label="Model" disabled><option value="">PMX</option></select>
+    <select id="select-pmx" class="title-select" aria-label="Model" disabled></select>
     <span id="loading-status" style="display:none"></span>
   </div>
 
