@@ -30,7 +30,7 @@ export class MMDAnimation {
       this.duration = this._getVMDDuration(mesh);
     }
 
-    this.playing = true;
+    this.playing = false;
   }
 
   _getVMDDuration(mesh) {

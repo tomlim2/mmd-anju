@@ -138,6 +138,7 @@ export class UI {
     this._showLoading('Loading model...');
 
     const savedTime = this.audio.currentTime;
+    const wasPlaying = this.animation.playing;
 
     try {
       // Load new mesh in background (old model stays visible)
@@ -148,7 +149,7 @@ export class UI {
       this.loader.commitPendingMesh();
       this._pmxPath = pmxPath;
       this._updateDebugPaths();
-      await this._reapplyCurrentVmd(savedTime);
+      await this._reapplyCurrentVmd(savedTime, wasPlaying);
       this.loader.reveal();
       this._hideLoading();
       statusEl.textContent = '';
@@ -166,6 +167,7 @@ export class UI {
     this._showLoading('Downloading ZIP...');
 
     const savedTime = this.audio.currentTime;
+    const wasPlaying = this.animation.playing;
 
     try {
       const res = await fetch(zipUrl);
@@ -205,7 +207,7 @@ export class UI {
       this.loader.commitPendingMesh();
       this._pmxPath = targetPmx;
       this._updateDebugPaths();
-      await this._reapplyCurrentVmd(savedTime);
+      await this._reapplyCurrentVmd(savedTime, wasPlaying);
       this.loader.reveal();
       this._hideLoading();
       statusEl.textContent = '';
@@ -217,7 +219,7 @@ export class UI {
     }
   }
 
-  async _reapplyCurrentVmd(savedTime) {
+  async _reapplyCurrentVmd(savedTime, wasPlaying = false) {
     const vmdToApply = this._currentVmd || this._pendingVmd;
     if (!vmdToApply) return;
 
@@ -230,7 +232,8 @@ export class UI {
       this.riseFx.seekTo(savedTime);
       this.rippleFx.seekTo(savedTime);
     }
-    this.animation.playing = true;
+    this.animation.playing = wasPlaying;
+    this._updatePlayPauseButton(wasPlaying);
   }
 
   // --- Sample Mode ---
@@ -324,23 +327,8 @@ export class UI {
         this._currentVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._pendingVmd = null;
 
-        this.animation.playing = true;
-        try {
-          await this.audio.audioElement.play();
-          this._updatePlayPauseButton(true);
-        } catch {
-          this.animation.playing = false;
-          this._updatePlayPauseButton(false);
-          const resume = () => {
-            this.audio.play();
-            this.animation.playing = true;
-            this._updatePlayPauseButton(true);
-            document.removeEventListener('click', resume);
-            document.removeEventListener('keydown', resume);
-          };
-          document.addEventListener('click', resume, { once: true });
-          document.addEventListener('keydown', resume, { once: true });
-        }
+        this.animation.playing = false;
+        this._updatePlayPauseButton(false);
       } else {
         this._pendingVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._currentVmd = null;
