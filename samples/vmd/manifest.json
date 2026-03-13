@@ -1,0 +1,8 @@
+[
+  { "name": "HIGHER", "model": "IA ROCKS", "vmd": "higher/motion.vmd", "audio": "higher/audio.mp3", "score": 100, "bones": 111, "morphs": 16, "duration": 221.1 },
+  { "name": "Your Affection", "model": "pc001_f1", "vmd": "your-affection/motion.vmd", "audio": "your-affection/audio.mp3", "score": 100, "bones": 130, "morphs": 37, "duration": 30.4 },
+  { "name": "Electric Angel", "model": "Miku Project DIVA", "vmd": "electric-angel/motion.vmd", "audio": "electric-angel/audio.ogg", "score": 100, "bones": 186, "morphs": 46, "duration": 206.0 },
+  { "name": "Agent Yoru wo Yuku", "model": "Tda式改変鏡音リン", "vmd": "agent-yoru/motion.vmd", "audio": "agent-yoru/audio.mp3", "score": 100, "bones": 171, "morphs": 61, "duration": 125.6 },
+  { "name": "Senbonzakura", "model": "Retarget", "vmd": "senbonzakura/motion.vmd", "audio": "senbonzakura/audio.mp3", "score": 30, "bones": 20, "morphs": 0, "duration": 244.6, "warnings": ["LOW BONES", "NO MORPHS", "RETARGET"] },
+  { "name": "Melancholic", "model": "Tda式初音ミク", "vmd": "melancholic/motion.vmd", "audio": "melancholic/audio.mp3", "score": 100, "bones": 207, "morphs": 63, "duration": 221.2 }
+]
