@@ -7,15 +7,9 @@ import { RisingLightEffect } from './effects/rising-light.js';
 import { FallingLightEffect } from './effects/falling-light.js';
 import { FootRippleEffect } from './effects/foot-ripple.js';
 import { GroundReflectEffect } from './effects/ground-reflect.js';
-import { PostProcess } from './postprocess.js';
-
 const canvas = document.getElementById('canvas');
 const mmdScene = new MMDScene(canvas);
 await mmdScene.init();
-
-// Post-processing
-const postProcess = new PostProcess(mmdScene.renderer, mmdScene.scene, mmdScene.camera);
-mmdScene.setPostProcess(postProcess);
 
 const loader = new MMDModelLoader(mmdScene);
 const animation = new MMDAnimation(mmdScene);
@@ -34,13 +28,18 @@ mirrorFx.enabled = false;
 const ui = new UI({
   mmdScene, loader, animation, audio,
   riseFx, fallFx, rippleFx, mirrorFx,
-  postProcess,
 });
 
 let _lastAudioTime = 0;
+const FPS_CAP = 30;
+const FRAME_INTERVAL = 1000 / FPS_CAP;
+let _lastFrameTime = 0;
 
-function animate() {
+function animate(now) {
   requestAnimationFrame(animate);
+  const elapsed = now - _lastFrameTime;
+  if (elapsed < FRAME_INTERVAL) return;
+  _lastFrameTime = now - (elapsed % FRAME_INTERVAL);
   const wallDelta = mmdScene.clock.getDelta();
 
   if (audio.audioElement) {

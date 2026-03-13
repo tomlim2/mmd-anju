@@ -71,8 +71,12 @@ export class MMDScene {
     this.camera.updateProjectionMatrix();
   }
 
-  setPostProcess(pp) {
-    this._postProcess = pp;
+  async _ensurePostProcess() {
+    if (!this._postProcess) {
+      const { PostProcess } = await import('./postprocess.js');
+      this._postProcess = new PostProcess(this.renderer, this.scene, this.camera);
+    }
+    return this._postProcess;
   }
 
   static TONE_MAPPINGS = {
@@ -85,7 +89,8 @@ export class MMDScene {
     neutral: NeutralToneMapping,
   };
 
-  setPostProcessEnabled(on) {
+  async setPostProcessEnabled(on) {
+    if (on) await this._ensurePostProcess();
     this._ppEnabled = on;
     this._applyToneMapping();
   }

@@ -8,7 +8,7 @@ import { precomputeEffectEvents } from './effects/spark-precompute.js';
 import { autoSizeIK } from './ik-sizing.js';
 
 export class UI {
-  constructor({ mmdScene, loader, animation, audio, riseFx, fallFx, rippleFx, mirrorFx, postProcess }) {
+  constructor({ mmdScene, loader, animation, audio, riseFx, fallFx, rippleFx, mirrorFx }) {
     this.mmdScene = mmdScene;
     this.loader = loader;
     this.animation = animation;
@@ -17,7 +17,7 @@ export class UI {
     this.fallFx = fallFx;
     this.rippleFx = rippleFx;
     this.mirrorFx = mirrorFx;
-    this.postProcess = postProcess;
+    this.postProcess = null;
     this._ac = new AbortController();
     this._pmxPath = '';
     this._vmdPath = '';
@@ -751,8 +751,12 @@ export class UI {
     setupMasterToggle('chk-vfx-all', 'tab-vfx');
     const tmRow = document.getElementById('pp-tonemapping-row');
     const ppSections = document.getElementById('pp-sections');
-    setupMasterToggle('chk-pp-all', 'tab-pp', (on) => {
-      this.mmdScene.setPostProcessEnabled(on);
+    setupMasterToggle('chk-pp-all', 'tab-pp', async (on) => {
+      await this.mmdScene.setPostProcessEnabled(on);
+      if (on && !this.postProcess) {
+        this.postProcess = this.mmdScene._postProcess;
+        this._wirePpControls();
+      }
       tmRow.style.display = on ? 'none' : '';
       ppSections.style.display = on ? '' : 'none';
     });
@@ -811,45 +815,7 @@ export class UI {
     // Mirror
     wireSlider('rng-mirror-strength', 'val-mirror-strength', (v) => { this.mirrorFx.strength = v / 100; });
 
-    // --- PP Controls ---
-    const pp = this.postProcess;
-    if (pp) {
-      const ppMap = [
-        { chk: 'chk-bloom', toggle: (on) => pp.setBloomEnabled(on) },
-        { chk: 'chk-vignette', toggle: (on) => pp.setVignetteEnabled(on) },
-        { chk: 'chk-aces', toggle: (on) => pp.setAcesEnabled(on) },
-        { chk: 'chk-temp', toggle: (on) => pp.setTempEnabled(on) },
-        { chk: 'chk-ca', toggle: (on) => pp.setCaEnabled(on) },
-        { chk: 'chk-grain', toggle: (on) => pp.setGrainEnabled(on) },
-        { chk: 'chk-bw', toggle: (on) => {
-          pp.setBwEnabled(on);
-          if (on) {
-            document.getElementById('rng-bw-mix').value = pp.bwMix.value;
-            document.getElementById('val-bw-mix').value = pp.bwMix.value.toFixed(2);
-          }
-        }},
-        { chk: 'chk-saturation', toggle: (on) => pp.setSaturationEnabled(on) },
-        { chk: 'chk-contrast', toggle: (on) => pp.setContrastEnabled(on) },
-      ];
-      for (const { chk, toggle } of ppMap) {
-        document.getElementById(chk).addEventListener('change', (e) => {
-          toggle(e.target.checked);
-        }, sig);
-      }
-
-      wireSlider('rng-bloom-strength', 'val-bloom-strength', (v) => { pp.bloomStrength.value = v; pp._saved.bloomStrength = v; });
-      wireSlider('rng-bloom-radius', 'val-bloom-radius', (v) => { pp.bloomRadius.value = v; });
-      wireSlider('rng-bloom-threshold', 'val-bloom-threshold', (v) => { pp.bloomThreshold.value = v; });
-      wireSlider('rng-vignette-intensity', 'val-vignette-intensity', (v) => { pp.vignetteIntensity.value = v; pp._saved.vignetteIntensity = v; });
-      wireSlider('rng-aces-exposure', 'val-aces-exposure', (v) => { pp.acesExposure.value = v; });
-      wireSlider('rng-temp', 'val-temp', (v) => { pp.temperature.value = v; pp._saved.temperature = v; });
-      wireSlider('rng-ca-intensity', 'val-ca-intensity', (v) => { pp.caIntensity.value = v; pp._saved.caIntensity = v; });
-      wireSlider('rng-grain-amount', 'val-grain-amount', (v) => { pp.grainAmount.value = v; pp._saved.grainAmount = v; });
-      wireSlider('rng-bw-mix', 'val-bw-mix', (v) => { pp.bwMix.value = v; pp._saved.bwMix = v; });
-      wireSlider('rng-saturation', 'val-saturation', (v) => { pp.saturation.value = v; pp._saved.saturation = v; });
-      wireSlider('rng-contrast', 'val-contrast', (v) => { pp.contrast.value = v; pp._saved.contrast = v; });
-      wireSlider('rng-brightness', 'val-brightness', (v) => { pp.brightness.value = v; pp._saved.brightness = v; });
-    }
+    // PP slider/checkbox wiring deferred to _wirePpControls()
 
     // SVG icon markup
     const copySvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>';
@@ -946,129 +912,167 @@ export class UI {
       }
     }, sig);
 
-    // --- PP param getters & slider map ---
-    if (pp) {
-      const ppChkMap = { bloom: 'chk-bloom', vignette: 'chk-vignette', aces: 'chk-aces', temp: 'chk-temp', ca: 'chk-ca', bw: 'chk-bw', grain: 'chk-grain', saturation: 'chk-saturation', contrast: 'chk-contrast' };
-      const ppParams = {
-        bloom: () => ({ enabled: document.getElementById('chk-bloom').checked, strength: pp.bloomStrength.value, radius: pp.bloomRadius.value, threshold: pp.bloomThreshold.value }),
-        vignette: () => ({ enabled: document.getElementById('chk-vignette').checked, intensity: pp.vignetteIntensity.value }),
-        aces: () => ({ enabled: document.getElementById('chk-aces').checked, exposure: pp.acesExposure.value }),
-        temp: () => ({ enabled: document.getElementById('chk-temp').checked, value: pp.temperature.value }),
-        ca: () => ({ enabled: document.getElementById('chk-ca').checked, intensity: pp.caIntensity.value }),
-        bw: () => ({ enabled: document.getElementById('chk-bw').checked, mix: pp.bwMix.value }),
-        grain: () => ({ enabled: document.getElementById('chk-grain').checked, amount: pp.grainAmount.value }),
-        saturation: () => ({ enabled: document.getElementById('chk-saturation').checked, value: pp.saturation.value }),
-        contrast: () => ({ enabled: document.getElementById('chk-contrast').checked, contrast: pp.contrast.value, brightness: pp.brightness.value }),
-      };
+    // PP copy/paste — works even before PP is initialized (reads checkbox/slider DOM values)
+    const ppChkMap = { bloom: 'chk-bloom', vignette: 'chk-vignette', aces: 'chk-aces', temp: 'chk-temp', ca: 'chk-ca', bw: 'chk-bw', grain: 'chk-grain', saturation: 'chk-saturation', contrast: 'chk-contrast' };
 
-      const ppSliderMap = {
-        bloom: {
-          strength:  ['rng-bloom-strength', 'val-bloom-strength', (v) => { pp.bloomStrength.value = v; pp._saved.bloomStrength = v; }],
-          radius:    ['rng-bloom-radius', 'val-bloom-radius', (v) => { pp.bloomRadius.value = v; }],
-          threshold: ['rng-bloom-threshold', 'val-bloom-threshold', (v) => { pp.bloomThreshold.value = v; }],
-        },
-        vignette: {
-          intensity: ['rng-vignette-intensity', 'val-vignette-intensity', (v) => { pp.vignetteIntensity.value = v; pp._saved.vignetteIntensity = v; }],
-        },
-        aces: {
-          exposure: ['rng-aces-exposure', 'val-aces-exposure', (v) => { pp.acesExposure.value = v; }],
-        },
-        temp: {
-          value: ['rng-temp', 'val-temp', (v) => { pp.temperature.value = v; pp._saved.temperature = v; }],
-        },
-        ca: {
-          intensity: ['rng-ca-intensity', 'val-ca-intensity', (v) => { pp.caIntensity.value = v; pp._saved.caIntensity = v; }],
-        },
-        bw: {
-          mix: ['rng-bw-mix', 'val-bw-mix', (v) => { pp.bwMix.value = v; pp._saved.bwMix = v; }],
-        },
-        grain: {
-          amount: ['rng-grain-amount', 'val-grain-amount', (v) => { pp.grainAmount.value = v; pp._saved.grainAmount = v; }],
-        },
-        saturation: {
-          value: ['rng-saturation', 'val-saturation', (v) => { pp.saturation.value = v; pp._saved.saturation = v; }],
-        },
-        contrast: {
-          contrast: ['rng-contrast', 'val-contrast', (v) => { pp.contrast.value = v; pp._saved.contrast = v; }],
-          brightness: ['rng-brightness', 'val-brightness', (v) => { pp.brightness.value = v; pp._saved.brightness = v; }],
-        },
-      };
+    const ppSliderIds = {
+      bloom: { strength: ['rng-bloom-strength', 'val-bloom-strength'], radius: ['rng-bloom-radius', 'val-bloom-radius'], threshold: ['rng-bloom-threshold', 'val-bloom-threshold'] },
+      vignette: { intensity: ['rng-vignette-intensity', 'val-vignette-intensity'] },
+      aces: { exposure: ['rng-aces-exposure', 'val-aces-exposure'] },
+      temp: { value: ['rng-temp', 'val-temp'] },
+      ca: { intensity: ['rng-ca-intensity', 'val-ca-intensity'] },
+      bw: { mix: ['rng-bw-mix', 'val-bw-mix'] },
+      grain: { amount: ['rng-grain-amount', 'val-grain-amount'] },
+      saturation: { value: ['rng-saturation', 'val-saturation'] },
+      contrast: { contrast: ['rng-contrast', 'val-contrast'], brightness: ['rng-brightness', 'val-brightness'] },
+    };
 
-      const applyPpValues = (section, data) => {
-        const map = ppSliderMap[section];
-        if (!map) return false;
-        let applied = false;
-        if (data.enabled != null && ppChkMap[section]) {
-          const chk = document.getElementById(ppChkMap[section]);
-          if (chk.checked !== data.enabled) { chk.checked = data.enabled; chk.dispatchEvent(new Event('change')); }
-          applied = true;
+    const getPpParams = () => {
+      const all = {};
+      for (const [section, sliders] of Object.entries(ppSliderIds)) {
+        const obj = { enabled: document.getElementById(ppChkMap[section]).checked };
+        for (const [key, [rngId]] of Object.entries(sliders)) {
+          obj[key] = parseFloat(document.getElementById(rngId).value);
         }
-        for (const [key, [rngId, valId, setter]] of Object.entries(map)) {
-          const v = data[key];
-          if (v == null) continue;
-          const rng = document.getElementById(rngId);
-          const val = document.getElementById(valId);
-          rng.value = v;
-          val.value = v;
-          setter(v);
-          applied = true;
-        }
-        return applied;
-      };
-
-      // Per-section copy buttons (PP)
-      for (const btn of document.querySelectorAll('.fx-copy[data-pp]')) {
-        btn.addEventListener('click', async () => {
-          const data = ppParams[btn.dataset.pp]();
-          await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-          flashCopied(btn);
-        }, sig);
+        all[section] = obj;
       }
+      all.toneMapping = document.getElementById('sel-tonemapping').value;
+      all.ppOff = !document.getElementById('chk-pp-all').checked;
+      return all;
+    };
 
-      // Copy all PP
-      document.getElementById('pp-copy-all')?.addEventListener('click', async () => {
-        const all = {};
-        for (const [key, getter] of Object.entries(ppParams)) all[key] = getter();
-        all.toneMapping = document.getElementById('sel-tonemapping').value;
-        all.ppOff = !document.getElementById('chk-pp-all').checked;
-        await navigator.clipboard.writeText(JSON.stringify(all, null, 2));
-        this._showToast('PP copied');
-        flashCopied(document.getElementById('pp-copy-all'));
-      }, sig);
+    const applyPpValues = (section, data) => {
+      const ids = ppSliderIds[section];
+      if (!ids) return false;
+      let applied = false;
+      if (data.enabled != null && ppChkMap[section]) {
+        const chk = document.getElementById(ppChkMap[section]);
+        if (chk.checked !== data.enabled) { chk.checked = data.enabled; chk.dispatchEvent(new Event('change')); }
+        applied = true;
+      }
+      for (const [key, [rngId, valId]] of Object.entries(ids)) {
+        const v = data[key];
+        if (v == null) continue;
+        const rng = document.getElementById(rngId);
+        const val = document.getElementById(valId);
+        rng.value = v;
+        val.value = v;
+        rng.dispatchEvent(new Event('input'));
+        applied = true;
+      }
+      return applied;
+    };
 
-      // Paste all PP
-      document.getElementById('pp-paste-all')?.addEventListener('click', async () => {
-        try {
-          const text = await navigator.clipboard.readText();
-          const data = JSON.parse(text);
-          let applied = false;
-          for (const [section, values] of Object.entries(data)) {
-            if (typeof values === 'object' && ppSliderMap[section]) {
-              applyPpValues(section, values);
-              applied = true;
-            }
-          }
-          if (!applied) {
-            for (const section of Object.keys(ppSliderMap)) {
-              if (applyPpValues(section, data)) { applied = true; break; }
-            }
-          }
-          if (data.toneMapping) {
-            const sel = document.getElementById('sel-tonemapping');
-            sel.value = data.toneMapping;
-            sel.dispatchEvent(new Event('change'));
-          }
-          if (data.ppOff != null) {
-            const chk = document.getElementById('chk-pp-all');
-            const shouldBeOn = !data.ppOff;
-            if (chk.checked !== shouldBeOn) { chk.checked = shouldBeOn; chk.dispatchEvent(new Event('change')); }
-          }
-          this._showToast(applied ? 'PP pasted' : 'No matching PP data');
-        } catch {
-          this._showToast('Paste failed — invalid JSON or clipboard denied');
-        }
+    // Per-section copy buttons (PP)
+    for (const btn of document.querySelectorAll('.fx-copy[data-pp]')) {
+      btn.addEventListener('click', async () => {
+        const all = getPpParams();
+        const data = all[btn.dataset.pp];
+        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+        flashCopied(btn);
       }, sig);
     }
+
+    // Copy all PP
+    document.getElementById('pp-copy-all')?.addEventListener('click', async () => {
+      const all = getPpParams();
+      await navigator.clipboard.writeText(JSON.stringify(all, null, 2));
+      this._showToast('PP copied');
+      flashCopied(document.getElementById('pp-copy-all'));
+    }, sig);
+
+    // Paste all PP
+    document.getElementById('pp-paste-all')?.addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        const data = JSON.parse(text);
+        let applied = false;
+        for (const [section, values] of Object.entries(data)) {
+          if (typeof values === 'object' && ppSliderIds[section]) {
+            applyPpValues(section, values);
+            applied = true;
+          }
+        }
+        if (!applied) {
+          for (const section of Object.keys(ppSliderIds)) {
+            if (applyPpValues(section, data)) { applied = true; break; }
+          }
+        }
+        if (data.toneMapping) {
+          const sel = document.getElementById('sel-tonemapping');
+          sel.value = data.toneMapping;
+          sel.dispatchEvent(new Event('change'));
+        }
+        if (data.ppOff != null) {
+          const chk = document.getElementById('chk-pp-all');
+          const shouldBeOn = !data.ppOff;
+          if (chk.checked !== shouldBeOn) { chk.checked = shouldBeOn; chk.dispatchEvent(new Event('change')); }
+        }
+        this._showToast(applied ? 'PP pasted' : 'No matching PP data');
+      } catch {
+        this._showToast('Paste failed — invalid JSON or clipboard denied');
+      }
+    }, sig);
+  }
+
+  _wirePpControls() {
+    if (this._ppWired) return;
+    this._ppWired = true;
+    const pp = this.postProcess;
+    const sig = { signal: this._ac.signal };
+
+    const wireSlider = (rngId, valId, setter) => {
+      const rng = document.getElementById(rngId);
+      const val = document.getElementById(valId);
+      rng.addEventListener('input', () => {
+        const v = parseFloat(rng.value);
+        val.value = v;
+        setter(v);
+      }, sig);
+      val.addEventListener('change', () => {
+        let v = parseFloat(val.value) || parseFloat(rng.min);
+        v = Math.max(parseFloat(rng.min), Math.min(parseFloat(rng.max), v));
+        val.value = v;
+        rng.value = v;
+        setter(v);
+      }, sig);
+    };
+
+    const ppMap = [
+      { chk: 'chk-bloom', toggle: (on) => pp.setBloomEnabled(on) },
+      { chk: 'chk-vignette', toggle: (on) => pp.setVignetteEnabled(on) },
+      { chk: 'chk-aces', toggle: (on) => pp.setAcesEnabled(on) },
+      { chk: 'chk-temp', toggle: (on) => pp.setTempEnabled(on) },
+      { chk: 'chk-ca', toggle: (on) => pp.setCaEnabled(on) },
+      { chk: 'chk-grain', toggle: (on) => pp.setGrainEnabled(on) },
+      { chk: 'chk-bw', toggle: (on) => {
+        pp.setBwEnabled(on);
+        if (on) {
+          document.getElementById('rng-bw-mix').value = pp.bwMix.value;
+          document.getElementById('val-bw-mix').value = pp.bwMix.value.toFixed(2);
+        }
+      }},
+      { chk: 'chk-saturation', toggle: (on) => pp.setSaturationEnabled(on) },
+      { chk: 'chk-contrast', toggle: (on) => pp.setContrastEnabled(on) },
+    ];
+    for (const { chk, toggle } of ppMap) {
+      document.getElementById(chk).addEventListener('change', (e) => {
+        toggle(e.target.checked);
+      }, sig);
+    }
+
+    wireSlider('rng-bloom-strength', 'val-bloom-strength', (v) => { pp.bloomStrength.value = v; pp._saved.bloomStrength = v; });
+    wireSlider('rng-bloom-radius', 'val-bloom-radius', (v) => { pp.bloomRadius.value = v; });
+    wireSlider('rng-bloom-threshold', 'val-bloom-threshold', (v) => { pp.bloomThreshold.value = v; });
+    wireSlider('rng-vignette-intensity', 'val-vignette-intensity', (v) => { pp.vignetteIntensity.value = v; pp._saved.vignetteIntensity = v; });
+    wireSlider('rng-aces-exposure', 'val-aces-exposure', (v) => { pp.acesExposure.value = v; });
+    wireSlider('rng-temp', 'val-temp', (v) => { pp.temperature.value = v; pp._saved.temperature = v; });
+    wireSlider('rng-ca-intensity', 'val-ca-intensity', (v) => { pp.caIntensity.value = v; pp._saved.caIntensity = v; });
+    wireSlider('rng-grain-amount', 'val-grain-amount', (v) => { pp.grainAmount.value = v; pp._saved.grainAmount = v; });
+    wireSlider('rng-bw-mix', 'val-bw-mix', (v) => { pp.bwMix.value = v; pp._saved.bwMix = v; });
+    wireSlider('rng-saturation', 'val-saturation', (v) => { pp.saturation.value = v; pp._saved.saturation = v; });
+    wireSlider('rng-contrast', 'val-contrast', (v) => { pp.contrast.value = v; pp._saved.contrast = v; });
+    wireSlider('rng-brightness', 'val-brightness', (v) => { pp.brightness.value = v; pp._saved.brightness = v; });
   }
 
   _startPlaybackPoll() {
