@@ -8,6 +8,7 @@ export class MMDModelLoader {
     this.mmdScene = mmdScene;
     this.mesh = null;
     this._blobUrls = [];
+    this._texturesReady = Promise.resolve();
   }
 
   loadPMXFromBlobs(pmxFile, blobs) {
@@ -54,6 +55,10 @@ export class MMDModelLoader {
       return url;
     };
 
+    this._texturesReady = new Promise((resolveTex) => {
+      manager.onLoad = () => resolveTex();
+    });
+
     const loader = new MMDLoader(manager);
     const pmxUrl = URL.createObjectURL(pmxFile);
     this._blobUrls.push(pmxUrl);
@@ -71,7 +76,11 @@ export class MMDModelLoader {
 
   loadPMXFromPath(path) {
     this._revokeBlobUrls();
-    const loader = new MMDLoader();
+    const manager = new LoadingManager();
+    this._texturesReady = new Promise((resolveTex) => {
+      manager.onLoad = () => resolveTex();
+    });
+    const loader = new MMDLoader(manager);
 
     return new Promise((resolve, reject) => {
       loader.load(path, (mesh) => {
@@ -94,8 +103,9 @@ export class MMDModelLoader {
     this.mmdScene.scene.add(this.mesh);
   }
 
-  /** Reveal the current mesh (call after VMD is applied). */
-  reveal() {
+  /** Reveal the current mesh after all textures finish loading. */
+  async reveal() {
+    await this._texturesReady;
     if (this.mesh) this.mesh.visible = true;
   }
 

@@ -61,9 +61,17 @@ export class MMDScene {
     this.camera.updateProjectionMatrix();
   }
 
+  setPostProcess(pp) {
+    this._postProcess = pp;
+  }
+
   render() {
     this.controls.update();
-    this.renderer.render(this.scene, this.camera);
+    if (this._postProcess) {
+      this._postProcess.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   destroy() {

@@ -7,10 +7,15 @@ import { RisingLightEffect } from './effects/rising-light.js';
 import { FallingLightEffect } from './effects/falling-light.js';
 import { FootRippleEffect } from './effects/foot-ripple.js';
 import { GroundReflectEffect } from './effects/ground-reflect.js';
+import { PostProcess } from './postprocess.js';
 
 const canvas = document.getElementById('canvas');
 const mmdScene = new MMDScene(canvas);
 await mmdScene.init();
+
+// Post-processing
+const postProcess = new PostProcess(mmdScene.renderer, mmdScene.scene, mmdScene.camera);
+mmdScene.setPostProcess(postProcess);
 
 const loader = new MMDModelLoader(mmdScene);
 const animation = new MMDAnimation(mmdScene);
@@ -18,14 +23,18 @@ const audio = new MMDAudio(animation);
 
 // BG FX
 const riseFx = new RisingLightEffect(mmdScene.scene, mmdScene.camera);
+riseFx.enabled = false;
 const fallFx = new FallingLightEffect(mmdScene.scene);
 fallFx.enabled = false;
 const rippleFx = new FootRippleEffect(mmdScene.scene);
+rippleFx.enabled = false;
 const mirrorFx = new GroundReflectEffect(mmdScene.scene);
+mirrorFx.enabled = false;
 
 const ui = new UI({
   mmdScene, loader, animation, audio,
   riseFx, fallFx, rippleFx, mirrorFx,
+  postProcess,
 });
 
 let _lastAudioTime = 0;

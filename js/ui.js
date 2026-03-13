@@ -8,7 +8,7 @@ import { precomputeEffectEvents } from './effects/spark-precompute.js';
 import { autoSizeIK } from './ik-sizing.js';
 
 export class UI {
-  constructor({ mmdScene, loader, animation, audio, riseFx, fallFx, rippleFx, mirrorFx }) {
+  constructor({ mmdScene, loader, animation, audio, riseFx, fallFx, rippleFx, mirrorFx, postProcess }) {
     this.mmdScene = mmdScene;
     this.loader = loader;
     this.animation = animation;
@@ -17,6 +17,7 @@ export class UI {
     this.fallFx = fallFx;
     this.rippleFx = rippleFx;
     this.mirrorFx = mirrorFx;
+    this.postProcess = postProcess;
     this._ac = new AbortController();
     this._pmxPath = '';
     this._vmdPath = '';
@@ -67,7 +68,7 @@ export class UI {
       }
 
       // Everything ready — show play button overlay
-      this.loader.reveal();
+      await this.loader.reveal();
       this._hideLoading();
       this._showPlayOverlay();
 
@@ -150,7 +151,7 @@ export class UI {
       this._pmxPath = pmxPath;
       this._updateDebugPaths();
       await this._reapplyCurrentVmd(savedTime, wasPlaying);
-      this.loader.reveal();
+      await this.loader.reveal();
       this._hideLoading();
       statusEl.textContent = '';
     } catch (err) {
@@ -208,7 +209,7 @@ export class UI {
       this._pmxPath = targetPmx;
       this._updateDebugPaths();
       await this._reapplyCurrentVmd(savedTime, wasPlaying);
-      this.loader.reveal();
+      await this.loader.reveal();
       this._hideLoading();
       statusEl.textContent = '';
     } catch (err) {
@@ -567,6 +568,11 @@ export class UI {
     this.audio.setMuted(true);
 
     btn.addEventListener('click', () => {
+      // Dismiss play overlay if visible
+      const overlay = document.getElementById('play-overlay');
+      if (!overlay.classList.contains('hidden')) {
+        overlay.classList.add('hidden');
+      }
       if (this.audio.audioElement && !this.audio.audioElement.paused) {
         this.animation.playing = false;
         this.audio.pause();
@@ -606,14 +612,14 @@ export class UI {
 
   _updateMuteButton() {
     const btn = document.getElementById('btn-mute');
-    btn.innerHTML = this._muted ? '&#128263;' : '&#128264;';
+    btn.innerHTML = `<span class="material-symbols-rounded">${this._muted ? 'volume_off' : 'volume_up'}</span>`;
     btn.setAttribute('aria-label', this._muted ? 'Unmute' : 'Mute');
     btn.classList.toggle('active', !this._muted);
   }
 
   _updatePlayPauseButton(isPlaying) {
     const btn = document.getElementById('btn-playpause');
-    btn.innerHTML = isPlaying ? '&#9646;&#9646;' : '&#9655;';
+    btn.innerHTML = `<span class="material-symbols-rounded">${isPlaying ? 'pause' : 'play_arrow'}</span>`;
     btn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
   }
 
@@ -707,6 +713,16 @@ export class UI {
   _initFxSelectors() {
     const sig = { signal: this._ac.signal };
 
+    // Tab switching (VFX / PP)
+    for (const tab of document.querySelectorAll('.fx-tab')) {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.fx-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.fx-tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      }, sig);
+    }
+
     // Toggle checkbox → effect enabled + panel section visibility
     const fxMap = [
       { chk: 'chk-rise', fx: this.riseFx, section: 'fx-rise' },
@@ -757,6 +773,30 @@ export class UI {
     // Mirror
     wireSlider('rng-mirror-strength', 'val-mirror-strength', (v) => { this.mirrorFx.strength = v / 100; });
 
+    // --- PP Controls ---
+    const pp = this.postProcess;
+    if (pp) {
+      const ppMap = [
+        { chk: 'chk-bloom', section: 'fx-bloom', toggle: (on) => pp.setBloomEnabled(on) },
+        { chk: 'chk-vignette', section: 'fx-vignette', toggle: (on) => pp.setVignetteEnabled(on) },
+        { chk: 'chk-aces', section: 'fx-aces', toggle: (on) => pp.setAcesEnabled(on) },
+        { chk: 'chk-temp', section: 'fx-temp', toggle: (on) => pp.setTempEnabled(on) },
+      ];
+      for (const { chk, section, toggle } of ppMap) {
+        document.getElementById(chk).addEventListener('change', (e) => {
+          toggle(e.target.checked);
+          document.getElementById(section).classList.toggle('active', e.target.checked);
+        }, sig);
+      }
+
+      wireSlider('rng-bloom-strength', 'val-bloom-strength', (v) => { pp.bloomStrength.value = v; pp._saved.bloomStrength = v; });
+      wireSlider('rng-bloom-radius', 'val-bloom-radius', (v) => { pp.bloomRadius.value = v; });
+      wireSlider('rng-bloom-threshold', 'val-bloom-threshold', (v) => { pp.bloomThreshold.value = v; });
+      wireSlider('rng-vignette-intensity', 'val-vignette-intensity', (v) => { pp.vignetteIntensity.value = v; pp._saved.vignetteIntensity = v; });
+      wireSlider('rng-aces-exposure', 'val-aces-exposure', (v) => { pp.acesExposure.value = v; });
+      wireSlider('rng-temp', 'val-temp', (v) => { pp.temperature.value = v; pp._saved.temperature = v; });
+    }
+
     // SVG icon markup
     const copySvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M360-240q-33 0-56.5-23.5T280-320v-480q0-33 23.5-56.5T360-880h360q33 0 56.5 23.5T800-800v480q0 33-23.5 56.5T720-240H360Zm0-80h360v-480H360v480ZM200-80q-33 0-56.5-23.5T120-160v-560h80v560h440v80H200Zm160-240v-480 480Z"/></svg>';
     const checkSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="12" height="12" fill="currentColor"><path d="M382-240 154-468l57-57 171 171 367-367 57 57-424 424Z"/></svg>';
@@ -805,8 +845,8 @@ export class UI {
       return applied;
     };
 
-    // Per-section copy buttons
-    for (const btn of document.querySelectorAll('.fx-copy')) {
+    // Per-section copy buttons (VFX)
+    for (const btn of document.querySelectorAll('.fx-copy[data-fx]')) {
       btn.addEventListener('click', async () => {
         const data = fxParams[btn.dataset.fx]();
         await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
@@ -829,14 +869,12 @@ export class UI {
         const text = await navigator.clipboard.readText();
         const data = JSON.parse(text);
         let applied = false;
-        // Try as all-FX object { rise: {...}, fall: {...}, ... }
         for (const [section, values] of Object.entries(data)) {
           if (typeof values === 'object' && sliderMap[section]) {
             applyFxValues(section, values);
             applied = true;
           }
         }
-        // Try as single-section object { speed: 4, wind: 18, ... }
         if (!applied) {
           for (const section of Object.keys(sliderMap)) {
             if (applyFxValues(section, data)) { applied = true; break; }
@@ -847,6 +885,91 @@ export class UI {
         this._showToast('Paste failed — invalid JSON or clipboard denied');
       }
     }, sig);
+
+    // --- PP param getters & slider map ---
+    if (pp) {
+      const ppParams = {
+        bloom: () => ({ strength: pp.bloomStrength.value, radius: pp.bloomRadius.value, threshold: pp.bloomThreshold.value }),
+        vignette: () => ({ intensity: pp.vignetteIntensity.value }),
+        aces: () => ({ exposure: pp.acesExposure.value }),
+        temp: () => ({ value: pp.temperature.value }),
+      };
+
+      const ppSliderMap = {
+        bloom: {
+          strength:  ['rng-bloom-strength', 'val-bloom-strength', (v) => { pp.bloomStrength.value = v; pp._saved.bloomStrength = v; }],
+          radius:    ['rng-bloom-radius', 'val-bloom-radius', (v) => { pp.bloomRadius.value = v; }],
+          threshold: ['rng-bloom-threshold', 'val-bloom-threshold', (v) => { pp.bloomThreshold.value = v; }],
+        },
+        vignette: {
+          intensity: ['rng-vignette-intensity', 'val-vignette-intensity', (v) => { pp.vignetteIntensity.value = v; pp._saved.vignetteIntensity = v; }],
+        },
+        aces: {
+          exposure: ['rng-aces-exposure', 'val-aces-exposure', (v) => { pp.acesExposure.value = v; }],
+        },
+        temp: {
+          value: ['rng-temp', 'val-temp', (v) => { pp.temperature.value = v; pp._saved.temperature = v; }],
+        },
+      };
+
+      const applyPpValues = (section, data) => {
+        const map = ppSliderMap[section];
+        if (!map) return false;
+        let applied = false;
+        for (const [key, [rngId, valId, setter]] of Object.entries(map)) {
+          const v = data[key];
+          if (v == null) continue;
+          const rng = document.getElementById(rngId);
+          const val = document.getElementById(valId);
+          rng.value = v;
+          val.value = v;
+          setter(v);
+          applied = true;
+        }
+        return applied;
+      };
+
+      // Per-section copy buttons (PP)
+      for (const btn of document.querySelectorAll('.fx-copy[data-pp]')) {
+        btn.addEventListener('click', async () => {
+          const data = ppParams[btn.dataset.pp]();
+          await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
+          flashCopied(btn);
+        }, sig);
+      }
+
+      // Copy all PP
+      document.getElementById('pp-copy-all')?.addEventListener('click', async () => {
+        const all = {};
+        for (const [key, getter] of Object.entries(ppParams)) all[key] = getter();
+        await navigator.clipboard.writeText(JSON.stringify(all, null, 2));
+        this._showToast('PP copied');
+        flashCopied(document.getElementById('pp-copy-all'));
+      }, sig);
+
+      // Paste all PP
+      document.getElementById('pp-paste-all')?.addEventListener('click', async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          const data = JSON.parse(text);
+          let applied = false;
+          for (const [section, values] of Object.entries(data)) {
+            if (typeof values === 'object' && ppSliderMap[section]) {
+              applyPpValues(section, values);
+              applied = true;
+            }
+          }
+          if (!applied) {
+            for (const section of Object.keys(ppSliderMap)) {
+              if (applyPpValues(section, data)) { applied = true; break; }
+            }
+          }
+          this._showToast(applied ? 'PP pasted' : 'No matching PP data');
+        } catch {
+          this._showToast('Paste failed — invalid JSON or clipboard denied');
+        }
+      }, sig);
+    }
   }
 
   _startPlaybackPoll() {
@@ -859,9 +982,10 @@ export class UI {
           clearInterval(this._playPollId);
           this._playPollId = null;
           this.animation.playing = true;
-          this.loader.reveal();
-          this._hideLoading();
-          this._updatePlayPauseButton(true);
+          this.loader.reveal().then(() => {
+            this._hideLoading();
+            this._updatePlayPauseButton(true);
+          });
         }
       }, 100);
     };
@@ -872,6 +996,11 @@ export class UI {
   _showPlayOverlay() {
     const overlay = document.getElementById('play-overlay');
     overlay.classList.remove('hidden');
+    this.riseFx.staggerStart(5);
+    this.riseFx.enabled = document.getElementById('chk-rise').checked;
+    this.fallFx.enabled = document.getElementById('chk-fall').checked;
+    this.rippleFx.enabled = document.getElementById('chk-ripple').checked;
+    this.mirrorFx.enabled = document.getElementById('chk-mirror').checked;
     overlay.addEventListener('click', () => {
       overlay.classList.add('hidden');
       this.animation.playing = true;

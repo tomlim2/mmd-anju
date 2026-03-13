@@ -60,12 +60,9 @@ export class RisingLightEffect {
     this._scaleVec = new Vector3();
     this._color = new Color();
 
-    // Stagger initial spawns
-    for (let i = 0; i < MAX; i++) {
-      this._respawn(i);
-      this._ageArr[i] = Math.random() * this._life;
-      this._posArr[i * 3 + 1] += this._baseSpeed[i] * this._ageArr[i];
-    }
+    // All particles start hidden (no pre-spawn)
+    this._ageArr.fill(-1);
+    this._posArr.fill(0);
 
     const geo = new PlaneGeometry(1, 1);
     const mat = new MeshBasicNodeMaterial();
@@ -78,16 +75,15 @@ export class RisingLightEffect {
     this._mesh = new InstancedMesh(geo, mat, MAX);
     this._mesh.frustumCulled = false;
 
-    // Set initial instance matrices and colors
+    // Set initial instance matrices and colors — all hidden
     const initQ = new Quaternion();
-    const white = new Color(1, 1, 1);
+    const black = new Color(0, 0, 0);
+    const zeroScale = new Vector3(0, 0, 0);
+    const hidePos = new Vector3(0, -1000, 0);
     for (let i = 0; i < MAX; i++) {
-      const i3 = i * 3;
-      this._vec3.set(this._posArr[i3], this._posArr[i3 + 1], this._posArr[i3 + 2]);
-      this._scaleVec.set(this._size, this._size, this._size);
-      this._mat4.compose(this._vec3, initQ, this._scaleVec);
+      this._mat4.compose(hidePos, initQ, zeroScale);
       this._mesh.setMatrixAt(i, this._mat4);
-      this._mesh.setColorAt(i, white);
+      this._mesh.setColorAt(i, black);
     }
 
     this.scene.add(this._mesh);
@@ -112,10 +108,14 @@ export class RisingLightEffect {
   resetTime() {
     this._nextIdx = 0;
     this._velArr.fill(0);
+    this.staggerStart(5);
+  }
+
+  /** Stagger spawn: all particles start dead and appear gradually over `duration` seconds. */
+  staggerStart(duration = 5) {
     for (let i = 0; i < MAX; i++) {
-      this._respawn(i);
-      this._ageArr[i] = Math.random() * this._life;
-      this._posArr[i * 3 + 1] += this._baseSpeed[i] * this._ageArr[i];
+      this._ageArr[i] = -(duration * (i / MAX));
+      this._posArr[i * 3 + 1] = -1000; // hide below ground
     }
   }
 
@@ -199,6 +199,21 @@ export class RisingLightEffect {
     for (let i = 0; i < MAX; i++) {
       this._ageArr[i] += dt;
       const i3 = i * 3;
+
+      // Not yet spawned (stagger start)
+      if (this._ageArr[i] < 0) {
+        this._color.setRGB(0, 0, 0);
+        this._mesh.setColorAt(i, this._color);
+        this._scaleVec.set(0, 0, 0);
+        this._mat4.compose(this._vec3, camQ, this._scaleVec);
+        this._mesh.setMatrixAt(i, this._mat4);
+        continue;
+      }
+
+      // Just crossed zero — first spawn
+      if (this._ageArr[i] - dt < 0) {
+        this._respawn(i);
+      }
 
       if (this._ageArr[i] >= this._life || posArr[i3 + 1] > FADE_Y) {
         this._respawn(i);
