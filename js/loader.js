@@ -1,12 +1,14 @@
 import { LoadingManager } from 'three/webgpu';
 import { MMDLoader } from '../vendor/MMDLoader.js';
-import { swapToToonMaterial } from './shader.js';
+import { swapToToonMaterial, createOutlineMesh } from './shader.js';
 import { findMojibakeMatch } from './encoding.js';
 
 export class MMDModelLoader {
   constructor(mmdScene) {
     this.mmdScene = mmdScene;
     this.mesh = null;
+    this.outlineMesh = null;
+    this.edgeVisible = true;
     this._blobUrls = [];
     this._texturesReady = Promise.resolve();
   }
@@ -67,6 +69,7 @@ export class MMDModelLoader {
       loader.load(pmxUrl, (mesh) => {
         swapToToonMaterial(mesh);
         this._pendingMesh = mesh;
+        this._pendingOutlineMesh = createOutlineMesh(mesh);
         resolve(mesh);
       }, undefined, (err) => {
         reject(err);
@@ -86,6 +89,7 @@ export class MMDModelLoader {
       loader.load(path, (mesh) => {
         swapToToonMaterial(mesh);
         this._pendingMesh = mesh;
+        this._pendingOutlineMesh = createOutlineMesh(mesh);
         resolve(mesh);
       }, undefined, (err) => {
         reject(err);
@@ -101,15 +105,33 @@ export class MMDModelLoader {
     this._pendingMesh = null;
     this.mesh.visible = false;
     this.mmdScene.scene.add(this.mesh);
+
+    // Add outline mesh to scene (shares skeleton, single render pass)
+    this.outlineMesh = this._pendingOutlineMesh || null;
+    this._pendingOutlineMesh = null;
+    if (this.outlineMesh) {
+      this.outlineMesh.visible = false;
+      this.mmdScene.scene.add(this.outlineMesh);
+    }
   }
 
   /** Reveal the current mesh after all textures finish loading. */
   async reveal() {
     await this._texturesReady;
     if (this.mesh) this.mesh.visible = true;
+    const chk = document.getElementById('chk-edge');
+    this.edgeVisible = chk ? chk.checked : true;
+    if (this.outlineMesh) this.outlineMesh.visible = this.edgeVisible;
   }
 
   _removeCurrentMesh() {
+    if (this.outlineMesh) {
+      this.mmdScene.scene.remove(this.outlineMesh);
+      const mats = this.outlineMesh.userData.outlineMaterials || [];
+      mats.forEach(m => m.dispose());
+      // Don't dispose geometry (shared with main mesh)
+      this.outlineMesh = null;
+    }
     if (this.mesh) {
       this.mmdScene.scene.remove(this.mesh);
       this.mesh.geometry.dispose();

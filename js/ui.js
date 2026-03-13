@@ -707,7 +707,8 @@ export class UI {
   _formatTime(seconds) {
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
-    return `${m}:${String(s).padStart(2, '0')}`;
+    const f = Math.floor((seconds % 1) * 30);
+    return `${m}:${String(s).padStart(2, '0')}.${String(f).padStart(2, '0')}`;
   }
 
   _initFxSelectors() {
@@ -751,15 +752,35 @@ export class UI {
     setupMasterToggle('chk-vfx-all', 'tab-vfx');
     const tmRow = document.getElementById('pp-tonemapping-row');
     const ppSections = document.getElementById('pp-sections');
-    setupMasterToggle('chk-pp-all', 'tab-pp', async (on) => {
-      await this.mmdScene.setPostProcessEnabled(on);
-      if (on && !this.postProcess) {
+    const ppHighEls = ppSections.querySelectorAll('.pp-high');
+    const selPpLevel = document.getElementById('sel-pp-level');
+
+    const applyPpLevel = async (level) => {
+      const ppOn = level !== 'off';
+      await this.mmdScene.setPostProcessEnabled(ppOn);
+      if (ppOn && !this.postProcess) {
         this.postProcess = this.mmdScene._postProcess;
         this._wirePpControls();
       }
-      tmRow.style.display = on ? 'none' : '';
-      ppSections.style.display = on ? '' : 'none';
-    });
+      if (this.postProcess) this.postProcess.setLevel(level === 'off' ? 'low' : level);
+      tmRow.style.display = ppOn ? 'none' : '';
+      ppSections.style.display = ppOn ? '' : 'none';
+      // High-cost sections: bloom, CA, grain
+      for (const el of ppHighEls) {
+        el.style.display = level === 'high' ? '' : 'none';
+      }
+      // Disable high-cost effects when switching to low
+      if (this.postProcess && level !== 'high') {
+        this.postProcess.setBloomEnabled(false);
+        this.postProcess.setCaEnabled(false);
+        this.postProcess.setGrainEnabled(false);
+        document.getElementById('chk-bloom').checked = false;
+        document.getElementById('chk-ca').checked = false;
+        document.getElementById('chk-grain').checked = false;
+      }
+    };
+
+    selPpLevel.addEventListener('change', () => applyPpLevel(selPpLevel.value), sig);
 
     // Tone mapping dropdown (applies when PP is off)
     document.getElementById('sel-tonemapping').addEventListener('change', (e) => {
@@ -778,6 +799,42 @@ export class UI {
         fx.enabled = e.target.checked;
       }, sig);
     }
+
+    // Edge outline toggle
+    document.getElementById('chk-edge').addEventListener('change', (e) => {
+      this.loader.edgeVisible = e.target.checked;
+      if (this.loader.outlineMesh) this.loader.outlineMesh.visible = e.target.checked;
+    }, sig);
+
+    // Edge thickness scale
+    const getOutlineMats = () => {
+      const om = this.loader.outlineMesh;
+      if (!om) return [];
+      return om.userData.outlineMaterials || [];
+    };
+    const setEdgeScale = (v) => {
+      for (const m of getOutlineMats()) {
+        if (m.userData.edgeScale) m.userData.edgeScale.value = v;
+      }
+    };
+    const rngEdge = document.getElementById('rng-edge-scale');
+    const valEdge = document.getElementById('val-edge-scale');
+    rngEdge.addEventListener('input', () => { valEdge.value = rngEdge.value; setEdgeScale(parseFloat(rngEdge.value)); }, sig);
+    valEdge.addEventListener('change', () => {
+      let v = Math.max(0, Math.min(20, parseFloat(valEdge.value) || 0));
+      valEdge.value = v; rngEdge.value = v; setEdgeScale(v);
+    }, sig);
+
+    // Edge color override
+    document.getElementById('clr-edge').addEventListener('input', (e) => {
+      const hex = e.target.value;
+      const r = parseInt(hex.slice(1, 3), 16) / 255;
+      const g = parseInt(hex.slice(3, 5), 16) / 255;
+      const b = parseInt(hex.slice(5, 7), 16) / 255;
+      for (const m of getOutlineMats()) {
+        if (m.userData.edgeColor) m.userData.edgeColor.value.setRGB(r, g, b);
+      }
+    }, sig);
 
     // Wire slider ↔ number input pairs
     const wireSlider = (rngId, valId, setter) => {
@@ -937,7 +994,7 @@ export class UI {
         all[section] = obj;
       }
       all.toneMapping = document.getElementById('sel-tonemapping').value;
-      all.ppOff = !document.getElementById('chk-pp-all').checked;
+      all.ppLevel = document.getElementById('sel-pp-level').value;
       return all;
     };
 
@@ -1003,10 +1060,15 @@ export class UI {
           sel.value = data.toneMapping;
           sel.dispatchEvent(new Event('change'));
         }
-        if (data.ppOff != null) {
-          const chk = document.getElementById('chk-pp-all');
-          const shouldBeOn = !data.ppOff;
-          if (chk.checked !== shouldBeOn) { chk.checked = shouldBeOn; chk.dispatchEvent(new Event('change')); }
+        if (data.ppLevel) {
+          const sel = document.getElementById('sel-pp-level');
+          sel.value = data.ppLevel;
+          sel.dispatchEvent(new Event('change'));
+        } else if (data.ppOff != null) {
+          // Backward compat with old format
+          const sel = document.getElementById('sel-pp-level');
+          sel.value = data.ppOff ? 'off' : 'low';
+          sel.dispatchEvent(new Event('change'));
         }
         this._showToast(applied ? 'PP pasted' : 'No matching PP data');
       } catch {

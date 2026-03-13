@@ -34,7 +34,7 @@ export class MMDScene {
       canvas: this.canvas,
       antialias: true,
     });
-    this.renderer.setPixelRatio(1);
+    this.renderer.setPixelRatio(2);
     this.scene.background = new Color(0x1a1a1a);
 
     await this.renderer.init();

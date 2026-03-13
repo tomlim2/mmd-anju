@@ -26,7 +26,7 @@ export class PostProcess {
   constructor(renderer, scene, camera) {
     this._pp = new PostProcessing(renderer);
 
-    // --- Shared uniforms (used by both chains) ---
+    // --- Shared uniforms ---
     this.caIntensity = uniform(DEFAULTS.ca.intensity);
     this.acesMix = uniform(0.0);
     this.acesExposure = uniform(DEFAULTS.aces.exposure);
@@ -38,10 +38,11 @@ export class PostProcess {
     this.grainAmount = uniform(DEFAULTS.grain.amount);
     this.vignetteIntensity = uniform(DEFAULTS.vignette.intensity);
 
-    // --- Scene pass + CA (shared input) ---
+    // --- Scene pass ---
     const scenePass = pass(scene, camera);
     const sceneTex = scenePass.getTextureNode('output');
 
+    // --- CA (chromatic aberration) — high cost: 3 texture fetches ---
     const caDir = screenUV.sub(0.5);
     const caAmount = length(caDir).mul(this.caIntensity);
     const caNorm = normalize(caDir);
@@ -53,15 +54,20 @@ export class PostProcess {
       sceneTex.uv(uvB).z,
     );
 
-    // --- Bloom node (only included in bloom chain) ---
+    // --- Bloom node — high cost: multi-pass downsample+blur ---
     this._bloomNode = bloom(sceneTex, DEFAULTS.bloom.strength, DEFAULTS.bloom.radius, DEFAULTS.bloom.threshold);
 
-    // --- Build two output chains: with/without bloom ---
-    this._outputWithBloom = this._buildChain(caOutput.add(this._bloomNode));
-    this._outputWithoutBloom = this._buildChain(caOutput);
+    // --- 3 output chains ---
+    // High: CA + bloom + grain + per-pixel effects
+    this._outputHigh = this._buildChain(caOutput.add(this._bloomNode), { grain: true });
+    // Low (with bloom off but CA still in graph — reuse for bloom toggle within high)
+    this._outputMid = this._buildChain(caOutput, { grain: true });
+    // Low: no CA, no bloom, no grain — just per-pixel math
+    this._outputLow = this._buildChain(sceneTex, { grain: false });
 
+    this._level = 'low';  // 'low' or 'high'
     this._bloomActive = false;
-    this._pp.outputNode = this._outputWithoutBloom;
+    this._pp.outputNode = this._outputLow;
 
     // --- Saved values for enable/disable ---
     this._saved = {
@@ -78,7 +84,7 @@ export class PostProcess {
     };
   }
 
-  _buildChain(startOutput) {
+  _buildChain(startOutput, { grain = true } = {}) {
     let output = startOutput;
 
     // ACES Tone Mapping
@@ -107,10 +113,12 @@ export class PostProcess {
     // Contrast / Brightness
     output = output.sub(0.5).mul(this.contrast).add(0.5).add(this.brightness).clamp(0, 1);
 
-    // Film Grain (animated noise)
-    const seed = dot(screenUV, vec3(12.9898, 78.233, 45.164)).add(timerLocal());
-    const noise = fract(sin(seed).mul(43758.5453)).sub(0.5).mul(this.grainAmount);
-    output = output.add(noise).clamp(0, 1);
+    // Film Grain (only in high chain)
+    if (grain) {
+      const seed = dot(screenUV, vec3(12.9898, 78.233, 45.164)).add(timerLocal());
+      const noise = fract(sin(seed).mul(43758.5453)).sub(0.5).mul(this.grainAmount);
+      output = output.add(noise).clamp(0, 1);
+    }
 
     // Vignette (last)
     const dist = length(screenUV.sub(0.5));
@@ -118,6 +126,21 @@ export class PostProcess {
     output = output.mul(vig.clamp(0, 1));
 
     return output;
+  }
+
+  // --- Level switching ---
+  setLevel(level) {
+    this._level = level;
+    this._updateOutputNode();
+  }
+
+  _updateOutputNode() {
+    if (this._level === 'high') {
+      this._pp.outputNode = this._bloomActive ? this._outputHigh : this._outputMid;
+    } else {
+      this._pp.outputNode = this._outputLow;
+    }
+    this._pp.needsUpdate = true;
   }
 
   // --- Bloom accessors (via BloomNode internal uniforms) ---
@@ -128,7 +151,7 @@ export class PostProcess {
   // --- Enable / Disable ---
   setBloomEnabled(on) {
     this._bloomActive = on;
-    this._pp.outputNode = on ? this._outputWithBloom : this._outputWithoutBloom;
+    this._updateOutputNode();
     if (on) {
       this._bloomNode.strength.value = this._saved.bloomStrength;
     }
