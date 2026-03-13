@@ -15,9 +15,9 @@ const DEFAULTS = {
   temp: { value: 0 },
   ca: { intensity: 0 },
   grain: { amount: 0 },
-  saturation: { value: 1.15 },
+  saturation: { value: 1 },
   bw: { mix: 0 },
-  contrast: { value: 1.02, brightness: 0 },
+  contrast: { value: 1, brightness: 0 },
 };
 
 export class PostProcess {
@@ -28,7 +28,7 @@ export class PostProcess {
 
     // --- Shared uniforms (used by both chains) ---
     this.caIntensity = uniform(DEFAULTS.ca.intensity);
-    this.acesMix = uniform(1.0);
+    this.acesMix = uniform(0.0);
     this.acesExposure = uniform(DEFAULTS.aces.exposure);
     this.temperature = uniform(0.0);
     this.saturation = uniform(DEFAULTS.saturation.value);

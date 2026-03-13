@@ -724,7 +724,7 @@ export class UI {
     }
 
     // Per-tab toggle OFF/ON buttons
-    const setupTabToggle = (btnId, containerId) => {
+    const setupTabToggle = (btnId, containerId, onToggle) => {
       const btn = document.getElementById(btnId);
       let saved = null;
       btn.addEventListener('click', () => {
@@ -737,6 +737,7 @@ export class UI {
           }
           btn.textContent = 'ON';
           btn.classList.add('off');
+          onToggle?.(true);
         } else {
           for (const chk of chks) {
             const was = saved.get(chk.id) ?? false;
@@ -745,11 +746,19 @@ export class UI {
           btn.textContent = 'OFF';
           btn.classList.remove('off');
           saved = null;
+          onToggle?.(false);
         }
       }, sig);
     };
     setupTabToggle('btn-vfx-off', 'tab-vfx');
-    setupTabToggle('btn-pp-off', 'tab-pp');
+    setupTabToggle('btn-pp-off', 'tab-pp', (allOff) => {
+      this.mmdScene.setPostProcessEnabled(!allOff);
+    });
+
+    // Tone mapping dropdown (applies when PP is off)
+    document.getElementById('sel-tonemapping').addEventListener('change', (e) => {
+      this.mmdScene.setToneMapping(e.target.value);
+    }, sig);
 
     // Toggle checkbox → effect enabled (section always visible)
     const fxMap = [

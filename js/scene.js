@@ -6,6 +6,13 @@ import {
   AmbientLight,
   DirectionalLight,
   Clock,
+  NoToneMapping,
+  LinearToneMapping,
+  ReinhardToneMapping,
+  CineonToneMapping,
+  ACESFilmicToneMapping,
+  AgXToneMapping,
+  NeutralToneMapping,
 } from 'three/webgpu';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -18,6 +25,8 @@ export class MMDScene {
     this.controls = null;
     this.clock = new Clock();
     this._ac = new AbortController();
+    this._ppEnabled = true;
+    this._toneMappingKey = 'aces';
   }
 
   async init() {
@@ -65,9 +74,37 @@ export class MMDScene {
     this._postProcess = pp;
   }
 
+  static TONE_MAPPINGS = {
+    none: NoToneMapping,
+    linear: LinearToneMapping,
+    reinhard: ReinhardToneMapping,
+    cineon: CineonToneMapping,
+    aces: ACESFilmicToneMapping,
+    agx: AgXToneMapping,
+    neutral: NeutralToneMapping,
+  };
+
+  setPostProcessEnabled(on) {
+    this._ppEnabled = on;
+    this._applyToneMapping();
+  }
+
+  setToneMapping(key) {
+    this._toneMappingKey = key;
+    this._applyToneMapping();
+  }
+
+  _applyToneMapping() {
+    if (this._ppEnabled) {
+      this.renderer.toneMapping = NoToneMapping;
+    } else {
+      this.renderer.toneMapping = MMDScene.TONE_MAPPINGS[this._toneMappingKey] ?? ACESFilmicToneMapping;
+    }
+  }
+
   render() {
     this.controls.update();
-    if (this._postProcess) {
+    if (this._ppEnabled && this._postProcess) {
       this._postProcess.render();
     } else {
       this.renderer.render(this.scene, this.camera);
