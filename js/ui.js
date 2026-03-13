@@ -93,12 +93,16 @@ export class UI {
       return;
     }
 
-    for (const entry of this._pmxManifest) {
+    const deployed = this._pmxManifest.filter(e => e.deployed !== false);
+    for (const entry of deployed) {
       const opt = document.createElement('option');
       opt.value = JSON.stringify(entry);
       opt.textContent = entry.name;
       selectPmx.appendChild(opt);
     }
+    // Set default to diva family (matches _loadDefaultModel)
+    const defaultEntry = deployed.find(e => e.family === 'diva') || deployed[0];
+    if (defaultEntry) selectPmx.value = JSON.stringify(defaultEntry);
     selectPmx.disabled = false;
 
     selectPmx.addEventListener('change', async () => {
@@ -243,6 +247,7 @@ export class UI {
       this._sampleSongs = await res.json();
     } catch { return; }
 
+    this._sampleSongs = this._sampleSongs.filter(s => s.deployed !== false);
     songSelect.innerHTML = '';
     for (const song of this._sampleSongs) {
       const o = document.createElement('option');

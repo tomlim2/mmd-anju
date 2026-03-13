@@ -1,8 +1,8 @@
 [
   { "name": "Animasa Miku", "family": "animasa", "path": "animasa/miku.pmx", "bones": 234, "confidence": 100 },
   { "name": "Tda Miku Append", "family": "tda", "path": "tda/TdaéÆèââπÉ~ÉNÅEÉAÉyÉìÉh_Ver1.10.pmx", "bones": 206, "confidence": 86 },
-  { "name": "YYB Miku v1.02", "family": "yyb", "path": "yyb/YYBéÆèââπÉ~ÉNv1.02.pmx", "bones": 270, "confidence": 100 },
-  { "name": "fFm31nd", "family": "unknown", "path": "fFm31nd/fFm31ndHAO.zip", "type": "zip", "bones": 0, "confidence": 50 },
+  { "name": "YYB Miku v1.02", "family": "yyb", "path": "yyb/YYBéÆèââπÉ~ÉNv1.02.pmx", "bones": 270, "confidence": 100, "deployed": false },
+  { "name": "fFm31nd", "family": "unknown", "path": "fFm31nd/fFm31ndHAO.zip", "type": "zip", "bones": 0, "confidence": 50, "deployed": false },
   { "name": "HSR Sparkle", "family": "diva", "path": "diva/星穹铁道—火花2.pmx", "bones": 401, "confidence": 100 },
-  { "name": "Archer", "family": "unknown", "path": "archer/Archer.zip", "type": "zip", "bones": 0, "confidence": 50 }
+  { "name": "Archer", "family": "unknown", "path": "archer/Archer.zip", "type": "zip", "bones": 0, "confidence": 50, "deployed": false }
 ]
