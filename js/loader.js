@@ -11,6 +11,7 @@ export class MMDModelLoader {
     this.edgeVisible = true;
     this._blobUrls = [];
     this._texturesReady = Promise.resolve();
+    this.onStatus = null; // (msg: string) => void
   }
 
   loadPMXFromBlobs(pmxFile, blobs) {
@@ -57,16 +58,26 @@ export class MMDModelLoader {
       return url;
     };
 
+    let texturesResolved = false;
     this._texturesReady = new Promise((resolveTex) => {
-      manager.onLoad = () => resolveTex();
+      manager.onLoad = () => { texturesResolved = true; resolveTex(); };
     });
+    let meshLoaded = false;
+    manager.onProgress = (_url, loaded, total) => {
+      if (!this.onStatus) return;
+      if (!meshLoaded) return;
+      if (!texturesResolved) this.onStatus(`Loading textures... (${loaded}/${total})`);
+    };
 
     const loader = new MMDLoader(manager);
     const pmxUrl = URL.createObjectURL(pmxFile);
     this._blobUrls.push(pmxUrl);
 
     return new Promise((resolve, reject) => {
+      this.onStatus?.('Loading mesh...');
       loader.load(pmxUrl, (mesh) => {
+        meshLoaded = true;
+        this.onStatus?.('Loading textures...');
         swapToToonMaterial(mesh);
         this._pendingMesh = mesh;
         this._pendingOutlineMesh = createOutlineMesh(mesh);
@@ -80,13 +91,23 @@ export class MMDModelLoader {
   loadPMXFromPath(path) {
     this._revokeBlobUrls();
     const manager = new LoadingManager();
+    let texturesResolved = false;
     this._texturesReady = new Promise((resolveTex) => {
-      manager.onLoad = () => resolveTex();
+      manager.onLoad = () => { texturesResolved = true; resolveTex(); };
     });
+    let meshLoaded = false;
+    manager.onProgress = (_url, loaded, total) => {
+      if (!this.onStatus) return;
+      if (!meshLoaded) return;
+      if (!texturesResolved) this.onStatus(`Loading textures... (${loaded}/${total})`);
+    };
     const loader = new MMDLoader(manager);
 
     return new Promise((resolve, reject) => {
+      this.onStatus?.('Loading mesh...');
       loader.load(path, (mesh) => {
+        meshLoaded = true;
+        this.onStatus?.('Loading textures...');
         swapToToonMaterial(mesh);
         this._pendingMesh = mesh;
         this._pendingOutlineMesh = createOutlineMesh(mesh);

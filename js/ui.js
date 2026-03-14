@@ -25,6 +25,7 @@ export class UI {
     this._pendingVmd = null;   // VMD blob fetched before mesh is available
     this._currentPmxEntry = null; // PMX manifest entry for current model
 
+    this.loader.onStatus = (msg) => this._setLoadingText(msg);
     this._pmxReady = this._initPmxSelect();
     this._initSampleMode();
     this._initPlayback();
@@ -48,7 +49,6 @@ export class UI {
 
     try {
       // Wait for both PMX and first VMD to finish loading
-      this._setLoadingText('Loading model...');
       await Promise.all([
         this.loader.loadPMXFromPath(path),
         this._firstVmdReady,
@@ -136,7 +136,7 @@ export class UI {
   async _loadPmxFromSamplePath(pmxPath) {
     const statusEl = document.getElementById('loading-status');
     statusEl.textContent = 'Loading...';
-    this._showLoading('Loading model...');
+    this._showLoading('Loading...');
 
     const savedTime = this.audio.currentTime;
     const wasPlaying = this.animation.playing;
@@ -200,7 +200,6 @@ export class UI {
         blobs.set(path, new File([blob], path.split('/').pop()));
       }
 
-      this._setLoadingText('Loading model...');
       await this.loader.loadPMXFromBlobs(pmxFile, blobs);
       // Swap: destroy old animation, commit new mesh, reapply VMD
       this._setLoadingText('Applying motion...');
@@ -572,6 +571,7 @@ export class UI {
       // Dismiss play overlay if visible
       const overlay = document.getElementById('play-overlay');
       if (!overlay.classList.contains('hidden')) {
+        overlay.classList.remove('loading', 'ready');
         overlay.classList.add('hidden');
       }
       if (this.audio.audioElement && !this.audio.audioElement.paused) {
@@ -826,16 +826,59 @@ export class UI {
       valEdge.value = v; rngEdge.value = v; setEdgeScale(v);
     }, sig);
 
-    // Edge color override
-    document.getElementById('clr-edge').addEventListener('input', (e) => {
-      const hex = e.target.value;
+    // Outline color override (only when checkbox is checked)
+    const chkEdgeColor = document.getElementById('chk-edge-color');
+    const clrEdge = document.getElementById('clr-edge');
+    const applyEdgeColor = () => {
+      if (!chkEdgeColor.checked) {
+        // Restore original PMX colors
+        for (const m of getOutlineMats()) {
+          if (m.userData.edgeColor && m.userData.edgeOriginalColor) {
+            const c = m.userData.edgeOriginalColor;
+            m.userData.edgeColor.value.setRGB(c.r, c.g, c.b);
+          }
+        }
+        return;
+      }
+      const hex = clrEdge.value;
       const r = parseInt(hex.slice(1, 3), 16) / 255;
       const g = parseInt(hex.slice(3, 5), 16) / 255;
       const b = parseInt(hex.slice(5, 7), 16) / 255;
       for (const m of getOutlineMats()) {
         if (m.userData.edgeColor) m.userData.edgeColor.value.setRGB(r, g, b);
       }
+    };
+    chkEdgeColor.addEventListener('change', applyEdgeColor, sig);
+    clrEdge.addEventListener('input', () => {
+      if (chkEdgeColor.checked) applyEdgeColor();
     }, sig);
+
+    // FOV Fix — adjust camera FOV (lower = more orthographic-like)
+    // Compensate distance so apparent size stays constant: d * tan(fov/2) = const
+    const camera = this.mmdScene.camera;
+    const controls = this.mmdScene.controls;
+    const baseFov = 45;
+    const baseHalfTan = Math.tan((baseFov / 2) * Math.PI / 180);
+    let baseDistance = camera.position.distanceTo(controls.target);
+    const setFov = (v) => {
+      const newHalfTan = Math.tan((v / 2) * Math.PI / 180);
+      const newDist = baseDistance * baseHalfTan / newHalfTan;
+      const dir = camera.position.clone().sub(controls.target).normalize();
+      camera.position.copy(controls.target).addScaledVector(dir, newDist);
+      camera.fov = v;
+      camera.far = Math.max(200, newDist + 200);
+      camera.updateProjectionMatrix();
+      controls.update();
+    };
+    const rngFov = document.getElementById('rng-fov-fix');
+    const valFov = document.getElementById('val-fov-fix');
+    rngFov.addEventListener('input', () => { valFov.value = rngFov.value; setFov(parseFloat(rngFov.value)); }, sig);
+    valFov.addEventListener('change', () => {
+      let v = Math.max(10, Math.min(45, parseFloat(valFov.value) || 45));
+      valFov.value = v; rngFov.value = v; setFov(v);
+    }, sig);
+    // Apply default FOV from slider
+    setFov(parseFloat(rngFov.value));
 
     // Wire slider ↔ number input pairs
     const wireSlider = (rngId, valId, setter) => {
@@ -1161,13 +1204,22 @@ export class UI {
 
   _showPlayOverlay() {
     const overlay = document.getElementById('play-overlay');
-    overlay.classList.remove('hidden');
+    overlay.classList.remove('hidden', 'loading');
+    overlay.classList.add('ready');
     this.riseFx.staggerStart(5);
     this.riseFx.enabled = document.getElementById('chk-rise').checked;
     this.fallFx.enabled = document.getElementById('chk-fall').checked;
     this.rippleFx.enabled = document.getElementById('chk-ripple').checked;
     this.mirrorFx.enabled = document.getElementById('chk-mirror').checked;
+    const label = overlay.querySelector('.play-label');
+    setTimeout(() => {
+      if (label) {
+        label.textContent = 'Click to play';
+        label.style.opacity = '0.85';
+      }
+    }, 900);
     overlay.addEventListener('click', () => {
+      overlay.classList.remove('ready');
       overlay.classList.add('hidden');
       this.animation.playing = true;
       this._updatePlayPauseButton(true);
@@ -1188,19 +1240,22 @@ export class UI {
   }
 
   _showLoading(msg) {
-    const el = document.getElementById('loading-overlay');
-    if (el) el.classList.remove('hidden');
-    const txt = document.getElementById('loading-text');
-    if (txt) txt.textContent = msg || 'Loading...';
+    const overlay = document.getElementById('play-overlay');
+    overlay.classList.remove('hidden', 'ready');
+    overlay.classList.add('loading');
+    const label = overlay.querySelector('.play-label');
+    if (label) label.textContent = msg || 'Loading...';
   }
 
   _setLoadingText(msg) {
-    const txt = document.getElementById('loading-text');
-    if (txt) txt.textContent = msg;
+    const label = document.querySelector('#play-overlay .play-label');
+    if (label) label.textContent = msg;
   }
 
   _hideLoading() {
-    document.getElementById('loading-overlay')?.classList.add('hidden');
+    const overlay = document.getElementById('play-overlay');
+    overlay.classList.remove('loading');
+    overlay.classList.add('hidden');
   }
 
   _showToast(message) {

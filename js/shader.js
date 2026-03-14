@@ -83,6 +83,7 @@ export function createOutlineMesh(mesh) {
 
     outline.userData.edgeScale = scale;
     outline.userData.edgeColor = color;
+    outline.userData.edgeOriginalColor = new Color(params.color[0], params.color[1], params.color[2]);
     outline.userData.edgeBaseThickness = baseThickness;
 
     return outline;

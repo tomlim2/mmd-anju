@@ -343,34 +343,7 @@
       outline-offset: 2px;
     }
 
-    /* Loading spinner */
-    #loading-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      z-index: 15;
-      pointer-events: none;
-    }
-    #loading-overlay.hidden { display: none; }
-    .spinner {
-      width: 28px;
-      height: 28px;
-      border: 2px solid rgba(255,255,255,0.1);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
-    #loading-text {
-      font-size: 13px;
-      color: rgba(255,255,255,0.5);
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* Play overlay */
+    /* Play overlay — unified loading + play button */
     #play-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -378,53 +351,142 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 12px;
+      gap: 14px;
       z-index: 16;
-      cursor: pointer;
       background: rgba(0,0,0,0.35);
-      animation: fadeIn 0.3s ease;
     }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     #play-overlay.hidden { display: none; }
+
     #play-overlay .play-circle {
       width: 80px;
       height: 80px;
       border-radius: 50%;
-      background: rgba(0,0,0,0.5);
-      border: 2px solid rgba(255,255,255,0.4);
+      background: rgba(0,0,0,0.7);
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s, transform 0.15s;
       position: relative;
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  box-shadow 0.5s ease;
     }
-    #play-overlay .play-circle::before {
+
+    /* SVG ring — sits on top of circle */
+    .play-ring {
+      position: absolute;
+      inset: -3px;
+      width: calc(100% + 6px);
+      height: calc(100% + 6px);
+      transform: rotate(-90deg);
+    }
+    .ring-track {
+      fill: none;
+      stroke: rgba(255,255,255,0.12);
+      stroke-width: 2.5;
+    }
+    .ring-fill {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      stroke-dasharray: 289;
+      stroke-dashoffset: 289;
+      transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ── Loading state ── */
+    #play-overlay.loading { cursor: default; pointer-events: none; }
+    #play-overlay.loading .play-circle {
+      animation: circle-appear 0.5s ease both;
+    }
+    #play-overlay.loading .play-icon { opacity: 0; }
+
+    @keyframes circle-appear {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* ── Ready state (loading complete) ── */
+    #play-overlay.ready { cursor: pointer; }
+    #play-overlay.ready .play-ring { animation: none; }
+    #play-overlay.ready .ring-fill {
+      animation: ring-complete 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+    #play-overlay.ready .play-circle {
+      animation: ready-bounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s both;
+    }
+    #play-overlay.ready .play-icon {
+      animation: icon-appear 0.35s ease 0.9s both;
+    }
+    #play-overlay.ready .play-label {
+      opacity: 0.5;
+    }
+
+    /* Ring fills completely */
+    @keyframes ring-complete {
+      from { stroke-dashoffset: 289; }
+      to   { stroke-dashoffset: 0; }
+    }
+
+    /* Circle bounces */
+    @keyframes ready-bounce {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    /* Play icon fades in after bounce */
+    @keyframes icon-appear {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* Label fades in */
+    @keyframes label-fade-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Pulse ring — only after ready */
+    #play-overlay.ready .play-circle::before {
       content: '';
       position: absolute;
       inset: -4px;
       border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.3);
-      animation: pulse-ring 2s ease-out infinite;
+      border: 2px solid rgba(91,155,213,0.5);
+      animation: pulse-ring 2s ease-out 1.2s infinite;
     }
     @keyframes pulse-ring {
-      0% { transform: scale(1); opacity: 0.6; }
+      0%   { transform: scale(1); opacity: 0.8; }
       100% { transform: scale(1.4); opacity: 0; }
     }
-    #play-overlay .play-circle:hover {
-      background: rgba(0,0,0,0.7);
+
+    #play-overlay.ready .play-circle:hover {
       transform: scale(1.08);
     }
+
+    /* Play icon */
     #play-overlay .play-icon {
       width: 0; height: 0;
       border-style: solid;
       border-width: 16px 0 16px 28px;
       border-color: transparent transparent transparent rgba(255,255,255,0.9);
       margin-left: 4px;
+      transition: opacity 0.3s;
     }
+
+    /* Label */
     #play-overlay .play-label {
       font-size: 13px;
       color: rgba(255,255,255,0.85);
       letter-spacing: 0.5px;
+      opacity: 0;
+    }
+    #play-overlay.loading .play-label {
+      animation: label-loading-appear 0.5s ease both;
+    }
+    @keyframes label-loading-appear {
+      from { opacity: 0; }
+      to   { opacity: 0.5; }
     }
 
     /* Compatibility modal */
@@ -642,8 +704,7 @@
 <body>
   <canvas id="canvas"></canvas>
 
-  <div id="loading-overlay"><div class="spinner"></div><span id="loading-text">Loading...</span></div>
-  <div id="play-overlay" class="hidden"><div class="play-circle"><div class="play-icon"></div></div><span class="play-label">Click to play</span></div>
+  <div id="play-overlay" class="loading"><div class="play-circle"><svg class="play-ring" viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="46"/><circle class="ring-fill" cx="50" cy="50" r="46"/></svg><div class="play-icon"></div></div><span class="play-label">Loading...</span></div>
   <button id="btn-hide-ui" title="Hide UI (H)" aria-label="Hide UI" style="display:none"><span class="material-symbols-rounded" style="font-size:18px">visibility</span></button>
   <h1 id="title" style="display:none">MMD Player</h1>
 
@@ -772,9 +833,13 @@
 
     <div class="fx-tab-content" id="tab-pmx">
       <div class="fx-section active" id="fx-edge">
-        <div class="fx-section-title">Edge <label class="fx-chk"><input type="checkbox" id="chk-edge" checked></label></div>
+        <div class="fx-section-title">Outline <label class="fx-chk"><input type="checkbox" id="chk-edge" checked></label></div>
         <div class="slider"><span class="slider-label">Thick</span><input class="slider-track" type="range" id="rng-edge-scale" min="0" max="20" step="0.1" value="10"><input type="number" class="slider-val" id="val-edge-scale" value="10.0" min="0" max="20" step="0.1"></div>
-        <div class="slider"><span class="slider-label">Color</span><input type="color" id="clr-edge" value="#000000" style="width:24px;height:18px;padding:0;border:1px solid var(--border);background:transparent;cursor:pointer;border-radius:2px"></div>
+        <div class="slider"><span class="slider-label">Color</span><label class="fx-chk"><input type="checkbox" id="chk-edge-color"></label><input type="color" id="clr-edge" value="#000000" style="width:24px;height:18px;padding:0;border:1px solid var(--border);background:transparent;cursor:pointer;border-radius:2px"></div>
+      </div>
+      <div class="fx-section active" id="fx-fov-fix">
+        <div class="fx-section-title">FOV</div>
+        <div class="slider"><span class="slider-label">FOV</span><input class="slider-track" type="range" id="rng-fov-fix" min="10" max="45" step="1" value="15"><input type="number" class="slider-val" id="val-fov-fix" value="15" min="10" max="45" step="1"></div>
       </div>
     </div>
   </div>
