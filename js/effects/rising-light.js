@@ -30,7 +30,7 @@ const WIND_RISE_BOOST = 6.0;   // big upward surge on impulse
 const WIND_RADIUS = 10;        // effective impulse radius
 
 // Tunable defaults
-const DEFAULTS = { speed: 0.5, wind: WIND_STRENGTH, size: 0.1, life: LIFETIME, radius: WIND_RADIUS };
+const DEFAULTS = { speed: 0.5, wind: WIND_STRENGTH, size: 0.1, life: LIFETIME, radius: WIND_RADIUS, count: MAX };
 
 export class RisingLightEffect {
   static DEFAULTS = DEFAULTS;
@@ -44,6 +44,7 @@ export class RisingLightEffect {
     this._size = DEFAULTS.size;
     this._life = DEFAULTS.life;
     this._radius = DEFAULTS.radius;
+    this._count = MAX;
 
     this._posArr = new Float32Array(MAX * 3);
     this._velArr = new Float32Array(MAX * 3); // per-particle velocity (x, y, z)
@@ -99,6 +100,8 @@ export class RisingLightEffect {
   set life(v) { this._life = v; }
   get radius() { return this._radius; }
   set radius(v) { this._radius = v; }
+  get count() { return this._count; }
+  set count(v) { this._count = Math.max(1, Math.min(MAX, Math.round(v))); this._mesh.count = this._count; }
 
   setEvents(events) {
     this._events = events;
@@ -113,8 +116,8 @@ export class RisingLightEffect {
 
   /** Stagger spawn: all particles start dead and appear gradually over `duration` seconds. */
   staggerStart(duration = 5) {
-    for (let i = 0; i < MAX; i++) {
-      this._ageArr[i] = -(duration * (i / MAX));
+    for (let i = 0; i < this._count; i++) {
+      this._ageArr[i] = -(duration * (i / this._count));
       this._posArr[i * 3 + 1] = -1000; // hide below ground
     }
   }
@@ -196,7 +199,7 @@ export class RisingLightEffect {
     const velArr = this._velArr;
     const camQ = this._camera.quaternion;
 
-    for (let i = 0; i < MAX; i++) {
+    for (let i = 0; i < this._count; i++) {
       this._ageArr[i] += dt;
       const i3 = i * 3;
 

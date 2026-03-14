@@ -904,6 +904,7 @@ export class UI {
     wireSlider('rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; });
     wireSlider('rng-rise-life', 'val-rise-life', (v) => { this.riseFx.life = v; });
     wireSlider('rng-rise-radius', 'val-rise-radius', (v) => { this.riseFx.radius = v; });
+    wireSlider('rng-rise-count', 'val-rise-count', (v) => { this.riseFx.count = v; });
 
     // Fall
     wireSlider('rng-fall-speed', 'val-fall-speed', (v) => { this.fallFx.speed = v; });
@@ -931,7 +932,7 @@ export class UI {
     // FX param getters & setters
     const fxChkMap = { rise: 'chk-rise', fall: 'chk-fall', ripple: 'chk-ripple', mirror: 'chk-mirror' };
     const fxParams = {
-      rise: () => ({ enabled: document.getElementById('chk-rise').checked, speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size, life: this.riseFx.life, radius: this.riseFx.radius }),
+      rise: () => ({ enabled: document.getElementById('chk-rise').checked, speed: this.riseFx.speed, wind: this.riseFx.wind, size: this.riseFx.size, life: this.riseFx.life, radius: this.riseFx.radius, count: this.riseFx.count }),
       fall: () => ({ enabled: document.getElementById('chk-fall').checked, speed: this.fallFx.speed, size: this.fallFx.size }),
       ripple: () => ({ enabled: document.getElementById('chk-ripple').checked, radius: this.rippleFx.radius, life: this.rippleFx.life }),
       mirror: () => ({ enabled: document.getElementById('chk-mirror').checked, strength: this.mirrorFx.strength }),
@@ -942,7 +943,8 @@ export class UI {
                 wind:  ['rng-rise-wind', 'val-rise-wind', (v) => { this.riseFx.wind = v; }],
                 size:  ['rng-rise-size', 'val-rise-size', (v) => { this.riseFx.size = v; }],
                 life:  ['rng-rise-life', 'val-rise-life', (v) => { this.riseFx.life = v; }],
-                radius: ['rng-rise-radius', 'val-rise-radius', (v) => { this.riseFx.radius = v; }] },
+                radius: ['rng-rise-radius', 'val-rise-radius', (v) => { this.riseFx.radius = v; }],
+                count: ['rng-rise-count', 'val-rise-count', (v) => { this.riseFx.count = v; }] },
       fall:   { speed: ['rng-fall-speed', 'val-fall-speed', (v) => { this.fallFx.speed = v; }],
                 size:  ['rng-fall-size', 'val-fall-size', (v) => { this.fallFx.size = v; }] },
       ripple: { radius: ['rng-ripple-radius', 'val-ripple-radius', (v) => { this.rippleFx.radius = v; }],
@@ -1215,6 +1217,7 @@ export class UI {
     setTimeout(() => {
       if (label) {
         label.textContent = 'Click to play';
+        label.style.transition = 'opacity 0.4s ease';
         label.style.opacity = '0.85';
       }
     }, 900);
