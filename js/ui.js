@@ -34,6 +34,7 @@ export class UI {
     this._initFxSelectors();
     this._initKeyboard();
     this._initHideUI();
+    this._initTheaterMode();
     this._pmxReady.then(() => this._loadDefaultModel());
 
     this.audio.onEnded(() => this._playNextSample());
@@ -1237,6 +1238,40 @@ export class UI {
     }, { once: true });
   }
 
+  _initTheaterMode() {
+    const btn = document.getElementById('btn-theater');
+    this._theaterTimer = null;
+    this._theaterMouseHandler = null;
+
+    btn.addEventListener('click', () => this._toggleTheater(), { signal: this._ac.signal });
+  }
+
+  _toggleTheater() {
+    const body = document.body;
+    const btn = document.getElementById('btn-theater');
+    const entering = !body.classList.contains('theater-mode');
+
+    if (entering) {
+      body.classList.add('theater-mode');
+      btn.classList.add('active');
+      this._theaterMouseHandler = () => {
+        body.classList.remove('auto-hidden');
+        clearTimeout(this._theaterTimer);
+        this._theaterTimer = setTimeout(() => body.classList.add('auto-hidden'), 3000);
+      };
+      document.addEventListener('mousemove', this._theaterMouseHandler, { signal: this._ac.signal });
+      this._theaterTimer = setTimeout(() => body.classList.add('auto-hidden'), 3000);
+    } else {
+      body.classList.remove('theater-mode', 'auto-hidden');
+      btn.classList.remove('active');
+      clearTimeout(this._theaterTimer);
+      if (this._theaterMouseHandler) {
+        document.removeEventListener('mousemove', this._theaterMouseHandler);
+        this._theaterMouseHandler = null;
+      }
+    }
+  }
+
   _initHideUI() {
     document.getElementById('btn-hide-ui').addEventListener('click', () => {
       this._toggleUI();
@@ -1264,8 +1299,10 @@ export class UI {
     const counter = document.querySelector('#play-overlay .play-counter');
     if (!counter) return;
     counter.textContent = `${loaded}/${total}`;
-    if (loaded >= total) {
-      counter.style.opacity = '0';
+    const progress = total > 0 ? loaded / total : 0;
+    const ringFill = document.querySelector('#play-overlay .ring-fill');
+    if (ringFill) {
+      ringFill.style.strokeDashoffset = `${289 * (1 - progress)}`;
     }
   }
 
@@ -1333,6 +1370,9 @@ export class UI {
           break;
         case 'KeyH':
           this._toggleUI();
+          break;
+        case 'KeyT':
+          this._toggleTheater();
           break;
       }
     }, { signal: this._ac.signal });
