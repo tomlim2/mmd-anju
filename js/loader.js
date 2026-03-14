@@ -12,6 +12,7 @@ export class MMDModelLoader {
     this._blobUrls = [];
     this._texturesReady = Promise.resolve();
     this.onStatus = null; // (msg: string) => void
+    this.onProgress = null; // (loaded: number, total: number) => void
   }
 
   loadPMXFromBlobs(pmxFile, blobs) {
@@ -64,9 +65,11 @@ export class MMDModelLoader {
     });
     let meshLoaded = false;
     manager.onProgress = (_url, loaded, total) => {
-      if (!this.onStatus) return;
       if (!meshLoaded) return;
-      if (!texturesResolved) this.onStatus(`Loading textures... (${loaded}/${total})`);
+      if (!texturesResolved) {
+        this.onStatus?.('Loading textures...');
+        this.onProgress?.(loaded, total);
+      }
     };
 
     const loader = new MMDLoader(manager);
@@ -97,9 +100,11 @@ export class MMDModelLoader {
     });
     let meshLoaded = false;
     manager.onProgress = (_url, loaded, total) => {
-      if (!this.onStatus) return;
       if (!meshLoaded) return;
-      if (!texturesResolved) this.onStatus(`Loading textures... (${loaded}/${total})`);
+      if (!texturesResolved) {
+        this.onStatus?.('Loading textures...');
+        this.onProgress?.(loaded, total);
+      }
     };
     const loader = new MMDLoader(manager);
 

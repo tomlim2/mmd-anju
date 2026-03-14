@@ -26,6 +26,7 @@ export class UI {
     this._currentPmxEntry = null; // PMX manifest entry for current model
 
     this.loader.onStatus = (msg) => this._setLoadingText(msg);
+    this.loader.onProgress = (loaded, total) => this._setLoadingCounter(loaded, total);
     this._pmxReady = this._initPmxSelect();
     this._initSampleMode();
     this._initPlayback();
@@ -1223,12 +1224,16 @@ export class UI {
     }, 900);
     overlay.addEventListener('click', () => {
       overlay.classList.remove('ready');
-      overlay.classList.add('hidden');
-      this.animation.playing = true;
-      this._updatePlayPauseButton(true);
-      if (this.audio.audioElement) {
-        this.audio.play();
-      }
+      overlay.classList.add('dismissing');
+      setTimeout(() => {
+        overlay.classList.remove('dismissing');
+        overlay.classList.add('hidden');
+        this.animation.playing = true;
+        this._updatePlayPauseButton(true);
+        if (this.audio.audioElement) {
+          this.audio.play();
+        }
+      }, 500);
     }, { once: true });
   }
 
@@ -1253,6 +1258,15 @@ export class UI {
   _setLoadingText(msg) {
     const label = document.querySelector('#play-overlay .play-label');
     if (label) label.textContent = msg;
+  }
+
+  _setLoadingCounter(loaded, total) {
+    const counter = document.querySelector('#play-overlay .play-counter');
+    if (!counter) return;
+    counter.textContent = `${loaded}/${total}`;
+    if (loaded >= total) {
+      counter.style.opacity = '0';
+    }
   }
 
   _hideLoading() {

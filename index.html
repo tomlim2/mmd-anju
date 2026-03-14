@@ -115,7 +115,7 @@
       padding-right: 14px;
     }
 
-    #top-bar .title-select:hover { color: var(--accent); }
+    #top-bar .title-select:hover { color: var(--text-bright); }
     #top-bar .title-select:disabled { opacity: 0.4; cursor: default; }
     #top-bar .title-select option { background: var(--panel); color: var(--text); font-size: 12px; font-weight: 400; }
 
@@ -151,9 +151,41 @@
       user-select: none;
     }
 
-    #top-bar input[type="checkbox"] {
-      accent-color: var(--accent);
+    /* Custom checkbox — cross-browser grayscale */
+    input[type="checkbox"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 12px;
+      height: 12px;
+      border: 1.5px solid #666;
+      border-radius: 2px;
+      background: transparent;
       cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    input[type="checkbox"]:checked {
+      background: #888;
+      border-color: #888;
+    }
+    input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      left: 2.5px;
+      top: 0.5px;
+      width: 4px;
+      height: 7px;
+      border: solid #1a1a1a;
+      border-width: 0 1.5px 1.5px 0;
+      transform: rotate(45deg);
+    }
+    input[type="checkbox"]:hover {
+      border-color: #aaa;
+    }
+    input[type="checkbox"]:checked:hover {
+      background: #aaa;
+      border-color: #aaa;
     }
 
     /* ── Bottom Player Bar ── */
@@ -193,7 +225,7 @@
 
     #tl-fill {
       height: 100%;
-      background: var(--accent);
+      background: #aaa;
       border-radius: 1.5px;
       width: 100%;
       transform-origin: left;
@@ -207,7 +239,7 @@
       left: 0%;
       width: 13px;
       height: 13px;
-      background: var(--accent);
+      background: #aaa;
       border-radius: 50%;
       transform: translate(-50%, -50%);
       opacity: 0;
@@ -269,7 +301,7 @@
       width: 0;
       opacity: 0;
       transition: width 0.2s, opacity 0.2s, margin 0.2s;
-      accent-color: var(--accent);
+      accent-color: #888;
       cursor: pointer;
       margin-left: 0;
     }
@@ -303,8 +335,8 @@
       max-width: 450px;
       z-index: 20;
     }
-    @media (pointer: coarse) {
-      #debug-panel { display: none; }
+    @media (pointer: coarse), (max-width: 768px) {
+      #debug-panel, #fx-panel { display: none; }
     }
     #debug-info {
       font-size: 11px;
@@ -339,7 +371,7 @@
 
     /* Focus visible */
     button:focus-visible, select:focus-visible, input[type="range"]:focus-visible {
-      outline: 2px solid var(--accent);
+      outline: 2px solid rgba(255,255,255,0.3);
       outline-offset: 2px;
     }
 
@@ -385,7 +417,7 @@
     }
     .ring-fill {
       fill: none;
-      stroke: var(--accent);
+      stroke: rgba(255,255,255,0.6);
       stroke-width: 2.5;
       stroke-linecap: round;
       stroke-dasharray: 289;
@@ -399,6 +431,17 @@
       animation: circle-appear 0.5s ease both;
     }
     #play-overlay.loading .play-icon { opacity: 0; }
+    .play-counter {
+      position: absolute;
+      font-size: 13px;
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,0.5);
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 1;
+    }
+    #play-overlay:not(.loading) .play-counter { display: none; }
 
     @keyframes circle-appear {
       from { opacity: 0; }
@@ -452,7 +495,7 @@
       position: absolute;
       inset: -4px;
       border-radius: 50%;
-      border: 2px solid rgba(91,155,213,0.5);
+      border: 2px solid rgba(255,255,255,0.3);
       animation: pulse-ring 2s ease-out 1.2s infinite;
     }
     @keyframes pulse-ring {
@@ -462,6 +505,25 @@
 
     #play-overlay.ready .play-circle:hover {
       transform: scale(1.08);
+    }
+
+    /* ── Dismiss state (click to play → exit) ── */
+    #play-overlay.dismissing {
+      pointer-events: none;
+      transition: background 0.45s ease;
+      background: rgba(0,0,0,0);
+    }
+    #play-overlay.dismissing .play-circle {
+      animation: dismiss-shrink 0.45s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+    }
+    #play-overlay.dismissing .play-circle::before { animation: none; opacity: 0; }
+    #play-overlay.dismissing .play-label {
+      transition: opacity 0.3s ease;
+      opacity: 0 !important;
+    }
+    @keyframes dismiss-shrink {
+      0%   { transform: scale(1); }
+      100% { transform: scale(0); }
     }
 
     /* Play icon */
@@ -518,14 +580,14 @@
     .slider-track { -webkit-appearance: none; appearance: none; width: 72px; height: 3px; background: var(--track); border-radius: 2px; outline: none; cursor: pointer; }
     .slider-track::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--thumb); border: none; cursor: pointer; transition: background 0.12s; }
     .slider-track::-webkit-slider-thumb:hover { background: var(--thumb-hover); }
-    .slider-track::-webkit-slider-thumb:active { background: var(--accent); }
-    .slider-track:focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 2px; }
+    .slider-track::-webkit-slider-thumb:active { background: var(--thumb-hover); }
+    .slider-track:focus-visible { outline: 2px solid rgba(255,255,255,0.2); outline-offset: 2px; }
     .slider-track::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--thumb); border: none; cursor: pointer; }
     .slider-track::-moz-range-track { height: 3px; background: var(--track); border-radius: 2px; border: none; }
     .slider-val { color: var(--text-dim); font-size: var(--font-xs); font-family: inherit; font-variant-numeric: tabular-nums; width: 30px; text-align: right; flex-shrink: 0; background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 1px 2px; outline: none; -moz-appearance: textfield; }
     .slider-val::-webkit-inner-spin-button, .slider-val::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     .slider-val:hover { border-color: var(--border); }
-    .slider-val:focus-visible { border-color: var(--accent-dim); color: var(--text); }
+    .slider-val:focus-visible { border-color: rgba(255,255,255,0.2); color: var(--text); }
 
     /* ── FX Debug Panel ── */
     #fx-panel {
@@ -609,7 +671,7 @@
       opacity: 1 !important;
     }
     .fx-tab-content { display: none; }
-    .fx-tab-content.active { display: block; max-height: calc(100vh - 80px); overflow-y: auto; }
+    .fx-tab-content.active { display: block; max-height: 50vh; overflow-y: auto; }
     .fx-tab-content::-webkit-scrollbar { width: 3px; }
     .fx-tab-content::-webkit-scrollbar-track { background: transparent; }
     .fx-tab-content::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 2px; }
@@ -704,7 +766,7 @@
 <body>
   <canvas id="canvas"></canvas>
 
-  <div id="play-overlay" class="loading"><div class="play-circle"><svg class="play-ring" viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="46"/><circle class="ring-fill" cx="50" cy="50" r="46"/></svg><div class="play-icon"></div></div><span class="play-label">Loading...</span></div>
+  <div id="play-overlay" class="loading"><div class="play-circle"><svg class="play-ring" viewBox="0 0 100 100"><circle class="ring-track" cx="50" cy="50" r="46"/><circle class="ring-fill" cx="50" cy="50" r="46"/></svg><span class="play-counter"></span><div class="play-icon"></div></div><span class="play-label">Loading...</span></div>
   <button id="btn-hide-ui" title="Hide UI (H)" aria-label="Hide UI" style="display:none"><span class="material-symbols-rounded" style="font-size:18px">visibility</span></button>
   <h1 id="title" style="display:none">MMD Player</h1>
 
