@@ -777,16 +777,19 @@
     body.ui-hidden #btn-hide-ui { opacity: 0.3; }
     body.ui-hidden #btn-hide-ui:hover { opacity: 1; }
 
-    /* Watermark */
+    /* Watermark + Credits */
     #watermark {
       margin-left: auto;
       font-size: 10px;
       color: rgba(255,255,255,0.5);
       letter-spacing: 0.3px;
       white-space: nowrap;
+      text-align: right;
+      line-height: 1.5;
     }
     #watermark a { color: rgba(255,255,255,0.6); text-decoration: none; }
     #watermark a:hover { color: rgba(255,255,255,0.85); }
+    #watermark .credits { display: block; font-size: 9px; color: rgba(255,255,255,0.35); }
 
     /* Theater mode */
     .theater-mode #debug-panel { display: none; }
@@ -968,7 +971,9 @@
       </div>
       <span class="time-display"><span id="tl-current">0:00</span> / <span id="tl-total">0:00</span></span>
       <button id="btn-theater" title="Theater Mode (T)" aria-label="Theater Mode"><span class="material-symbols-rounded">theater_comedy</span></button>
-      <span id="watermark">mmd-anju 2026 · by tom lim · <a href="https://github.com/tomlim2/mmd-anju" target="_blank">github</a></span>
+      <span id="watermark">mmd-anju 2026 · by tom lim · <a href="https://github.com/tomlim2/mmd-anju" target="_blank">github</a>
+        <span class="credits">Sample: Sparkle PMX © miHoYo · HIGHER Motion © <a href="https://youtu.be/elfcprFRtZ8" target="_blank">1st PLACE</a></span>
+      </span>
     </div>
   </div>
 
