@@ -1216,13 +1216,11 @@ export class UI {
     this.rippleFx.enabled = document.getElementById('chk-ripple').checked;
     this.mirrorFx.enabled = document.getElementById('chk-mirror').checked;
     const label = overlay.querySelector('.play-label');
-    setTimeout(() => {
-      if (label) {
-        label.textContent = 'Click to play';
-        label.style.transition = 'opacity 0.4s ease';
-        label.style.opacity = '0.85';
-      }
-    }, 900);
+    const sublabel = overlay.querySelector('.play-sublabel');
+    const songSelect = document.getElementById('select-song');
+    const song = this._sampleSongs.find(s => s.vmd === songSelect?.value);
+    if (label) label.textContent = song?.name || 'Ready';
+    if (sublabel) sublabel.textContent = 'Click to play';
     overlay.addEventListener('click', () => {
       overlay.classList.remove('ready');
       overlay.classList.add('dismissing');
