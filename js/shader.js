@@ -3,6 +3,8 @@ import {
   SkinnedMesh,
   Color,
   BackSide,
+  AdditiveBlending,
+  AddOperation,
 } from 'three/webgpu';
 import {
   Fn,
@@ -18,6 +20,7 @@ import {
   dot,
   step,
   clamp,
+  matcapUV,
 } from 'three/tsl';
 
 // Shared rim uniforms — all materials reference these, UI controls once
@@ -41,7 +44,6 @@ export function swapToToonMaterial(mesh) {
     flat.transparent = mat.transparent;
     flat.opacity = mat.opacity;
 
-
     // Preserve outline parameters before disposing
     if (mat.userData?.outlineParameters) {
       flat.userData.outlineParameters = mat.userData.outlineParameters;
@@ -49,16 +51,46 @@ export function swapToToonMaterial(mesh) {
 
     const baseColor = uniform(mat.color || new Color(1, 1, 1));
     const mapTex = mat.map;
+    const matcapTex = mat.matcap;
+
+    const isOverlay = mat.name?.endsWith('+');
+    const isAdditiveOverlay = isOverlay && matcapTex && mat.matcapCombine === AddOperation;
+
+    if (isOverlay) {
+      flat.depthWrite = false;
+      flat.transparent = true;
+    }
+    if (isAdditiveOverlay) {
+      flat.blending = AdditiveBlending;
+    }
 
     flat.colorNode = Fn(() => {
+      // Additive sphere overlay: output only attenuated sphere.
+      // No diffuse — base material already has it in the framebuffer.
+      if (isAdditiveOverlay) {
+        return texture(matcapTex, matcapUV).rgb.mul(float(0.4));
+      }
+
       let color = baseColor;
       if (mapTex) color = color.mul(texture(mapTex).rgb);
 
-      // Toon rim light (hard step)
-      const viewDir = normalize(positionView.negate());
-      const NdotV = clamp(dot(normalView, viewDir), 0, 1);
-      const rim = step(rimUniforms.threshold, float(1).sub(NdotV));
-      color = color.add(vec3(rimUniforms.color).mul(rim).mul(rimUniforms.intensity));
+      if (matcapTex) {
+        const sphere = texture(matcapTex, matcapUV).rgb;
+        if (mat.matcapCombine === AddOperation) {
+          // Screen blend: highlights without exceeding 1.0
+          color = color.add(sphere).sub(color.mul(sphere));
+        } else {
+          color = color.mul(sphere);
+        }
+      }
+
+      // Rim light only for non-overlay materials
+      if (!isOverlay) {
+        const viewDir = normalize(positionView.negate());
+        const NdotV = clamp(dot(normalView, viewDir), 0, 1);
+        const rim = step(rimUniforms.threshold, float(1).sub(NdotV));
+        color = color.add(vec3(rimUniforms.color).mul(rim).mul(rimUniforms.intensity));
+      }
 
       return color;
     })();
