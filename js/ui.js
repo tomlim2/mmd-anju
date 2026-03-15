@@ -281,10 +281,8 @@ export class UI {
     });
 
     const songSelect = document.getElementById('select-song');
-    // Remove previously uploaded VMD options
-    for (const opt of [...songSelect.options]) {
-      if (opt.value.startsWith('upload:')) opt.remove();
-    }
+    // Clear all existing VMD options (samples + previous uploads)
+    songSelect.innerHTML = '';
     for (const entry of this._uploadedVmds) {
       const o = document.createElement('option');
       o.value = 'upload:' + entry.name;
@@ -969,6 +967,7 @@ export class UI {
     };
 
     selPpLevel.addEventListener('change', () => applyPpLevel(selPpLevel.value), sig);
+    applyPpLevel(selPpLevel.value);
 
     // Tone mapping dropdown (applies when PP is off)
     document.getElementById('sel-tonemapping').addEventListener('change', (e) => {

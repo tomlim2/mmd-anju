@@ -9,15 +9,15 @@ import {
 import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 
 const DEFAULTS = {
-  bloom: { strength: 0, radius: 0.1, threshold: 0.2 },
+  bloom: { strength: 0.05, radius: 0.1, threshold: 0.2 },
   vignette: { intensity: 0 },
   aces: { exposure: 0.5 },
   temp: { value: 0 },
-  ca: { intensity: 0 },
+  ca: { intensity: 0.002 },
   grain: { amount: 0 },
-  saturation: { value: 1 },
+  saturation: { value: 1.1 },
   bw: { mix: 0 },
-  contrast: { value: 1, brightness: 0 },
+  contrast: { value: 1.05, brightness: 0.01 },
 };
 
 export class PostProcess {
@@ -64,9 +64,9 @@ export class PostProcess {
     // Low: no CA, no bloom, no grain — just per-pixel math
     this._outputLow = this._buildChain(sceneTex, { grain: false });
 
-    this._level = 'low';  // 'low' or 'high'
-    this._bloomActive = false;
-    this._pp.outputNode = this._outputLow;
+    this._level = 'high';
+    this._bloomActive = true;
+    this._pp.outputNode = this._outputHigh;
 
     // --- Saved values for enable/disable ---
     this._saved = {
