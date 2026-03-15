@@ -107,7 +107,7 @@ export class UI {
     // Set default to diva family (matches _loadDefaultModel)
     const defaultEntry = deployed.find(e => e.family === 'diva') || deployed[0];
     if (defaultEntry) selectPmx.value = JSON.stringify(defaultEntry);
-    selectPmx.disabled = false;
+    selectPmx.disabled = deployed.length <= 1;
 
     selectPmx.addEventListener('change', async () => {
       if (!selectPmx.value) return;
@@ -288,13 +288,13 @@ export class UI {
       songSelect.appendChild(o);
     }
     songSelect.value = 'upload:' + this._uploadedVmds[0].name;
-    songSelect.disabled = false;
+    songSelect.disabled = songSelect.options.length <= 1;
 
     document.getElementById('btn-upload-vmd').classList.add('uploaded');
     this._loadUploadedVmd(0);
   }
 
-  _handlePmxUpload(fileList) {
+  async _handlePmxUpload(fileList) {
     const files = Array.from(fileList);
     const pmxFiles = files.filter(f => /\.pmx$/i.test(f.name));
 
@@ -303,7 +303,20 @@ export class UI {
     const allBlobs = new Map();
     for (const f of files) allBlobs.set(f.name, f);
 
-    this._uploadedPmxs = pmxFiles.map(pmxFile => ({
+    // Filter: only humanoid PMX files
+    const valid = [];
+    for (const pmxFile of pmxFiles) {
+      const buf = await pmxFile.arrayBuffer();
+      if (hasHumanoidBones(buf)) {
+        valid.push(new File([buf], pmxFile.name));
+      }
+    }
+    if (!valid.length) {
+      this._showToast('No humanoid PMX found');
+      return;
+    }
+
+    this._uploadedPmxs = valid.map(pmxFile => ({
       name: pmxFile.name.replace(/\.pmx$/i, ''),
       pmxFile,
       blobs: allBlobs,
@@ -317,7 +330,7 @@ export class UI {
       selectPmx.appendChild(o);
     }
     selectPmx.value = 'upload:' + this._uploadedPmxs[0].name;
-    selectPmx.disabled = false;
+    selectPmx.disabled = selectPmx.options.length <= 1;
 
     document.getElementById('btn-upload-pmx').classList.add('uploaded');
     this._loadUploadedPmx(0);
@@ -409,7 +422,7 @@ export class UI {
       if (song.score < 35) o.style.color = '#e06c75';
       songSelect.appendChild(o);
     }
-    songSelect.disabled = false;
+    songSelect.disabled = this._sampleSongs.length <= 1;
 
     const sig = { signal: this._ac.signal };
     const syncSelectColor = () => {
