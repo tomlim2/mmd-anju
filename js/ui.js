@@ -325,10 +325,8 @@ export class UI {
     }));
 
     const selectPmx = document.getElementById('select-pmx');
-    // Remove previously uploaded PMX options
-    for (const opt of [...selectPmx.options]) {
-      if (opt.value.startsWith('upload:')) opt.remove();
-    }
+    // Clear all existing PMX options (samples + previous uploads)
+    selectPmx.innerHTML = '';
     for (const entry of this._uploadedPmxs) {
       const o = document.createElement('option');
       o.value = 'upload:' + entry.name;
@@ -349,7 +347,7 @@ export class UI {
     if (entry.audioFile) {
       this.audio.loadFromFile(entry.audioFile);
     } else {
-      this.audio.stop();
+      this.audio.destroy();
     }
 
     this._vmdPath = entry.name;
@@ -495,7 +493,7 @@ export class UI {
         const audioFile = new File([audioBlob], audioPath.split('/').pop());
         this.audio.loadFromFile(audioFile);
       } else {
-        this.audio.stop();
+        this.audio.destroy();
       }
 
       this._vmdPath = vmdPath;
@@ -827,7 +825,7 @@ export class UI {
       const rect = this._tlTrack.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const ratio = Math.max(0, Math.min(1, x / rect.width));
-      const duration = this.audio.duration;
+      const duration = this.audio.duration || this.animation.duration;
       if (duration <= 0) return;
       const time = Math.round(ratio * duration * FPS) / FPS;
       this.animation.seekTo(time);
@@ -873,8 +871,10 @@ export class UI {
     // Continuous update loop
     const updateLoop = () => {
       if (!this._tlDragging) {
-        const duration = this.audio.duration;
-        const time = this.audio.currentTime;
+        const duration = this.audio.duration || this.animation.duration;
+        const time = this.audio.duration > 0
+          ? this.audio.currentTime
+          : this.animation.getCurrentTime();
         this._updateTimelineDisplay(time, duration);
       }
       this._tlRAF = requestAnimationFrame(updateLoop);
@@ -967,7 +967,6 @@ export class UI {
     };
 
     selPpLevel.addEventListener('change', () => applyPpLevel(selPpLevel.value), sig);
-    applyPpLevel(selPpLevel.value);
 
     // Tone mapping dropdown (applies when PP is off)
     document.getElementById('sel-tonemapping').addEventListener('change', (e) => {
@@ -1587,7 +1586,9 @@ export class UI {
   }
 
   _seekRelative(delta) {
-    const time = Math.max(0, Math.min(this.audio.currentTime + delta, this.audio.duration));
+    const cur = this.audio.duration > 0 ? this.audio.currentTime : this.animation.getCurrentTime();
+    const dur = this.audio.duration || this.animation.duration;
+    const time = Math.max(0, Math.min(cur + delta, dur));
     this.animation.seekTo(time);
     this.audio.seekTo(time);
     this.riseFx.seekTo(time);

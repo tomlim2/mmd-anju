@@ -27,15 +27,10 @@ export class MMDAnimation {
 
     if (opts.vmd) {
       disableUnusedIK(mesh, opts.vmd);
-      this.duration = this._getVMDDuration(mesh);
+      this.duration = opts.vmd.duration || 0;
     }
 
     this.playing = false;
-  }
-
-  _getVMDDuration(mesh) {
-    if (!mesh.animations || mesh.animations.length === 0) return 0;
-    return mesh.animations.reduce((max, clip) => Math.max(max, clip.duration), 0);
   }
 
   update(delta) {

@@ -64,9 +64,9 @@ export class PostProcess {
     // Low: no CA, no bloom, no grain — just per-pixel math
     this._outputLow = this._buildChain(sceneTex, { grain: false });
 
-    this._level = 'high';
-    this._bloomActive = true;
-    this._pp.outputNode = this._outputHigh;
+    this._level = 'low';
+    this._bloomActive = false;
+    this._pp.outputNode = this._outputLow;
 
     // --- Saved values for enable/disable ---
     this._saved = {
