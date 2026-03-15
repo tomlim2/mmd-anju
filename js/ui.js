@@ -269,7 +269,14 @@ export class UI {
     const vmds = files.filter(f => /\.vmd$/i.test(f.name));
     const audios = files.filter(f => /\.(mp3|ogg|m4a|wav)$/i.test(f.name));
 
-    if (!vmds.length) return;
+    if (!vmds.length) {
+      if (files.some(f => /\.(zip|rar|7z)$/i.test(f.name))) {
+        this._showToast('Upload the extracted folder, not the zip file');
+      } else {
+        this._showToast('No .vmd files found in folder');
+      }
+      return;
+    }
 
     this._uploadedVmds = vmds.map(vmdFile => {
       const stem = vmdFile.name.replace(/\.vmd$/i, '').toLowerCase();
@@ -300,7 +307,14 @@ export class UI {
     const files = Array.from(fileList);
     const pmxFiles = files.filter(f => /\.pmx$/i.test(f.name));
 
-    if (!pmxFiles.length) return;
+    if (!pmxFiles.length) {
+      if (files.some(f => /\.(zip|rar|7z)$/i.test(f.name))) {
+        this._showToast('Upload the extracted folder, not the zip file');
+      } else {
+        this._showToast('No .pmx files found in folder');
+      }
+      return;
+    }
 
     const allBlobs = new Map();
     for (const f of files) allBlobs.set(f.name, f);

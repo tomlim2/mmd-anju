@@ -751,9 +751,9 @@
     /* Toast */
     .toast {
       position: fixed;
-      bottom: 60px;
+      top: 48px;
       left: 50%;
-      transform: translateX(-50%) translateY(20px);
+      transform: translateX(-50%) translateY(-10px);
       background: var(--surface);
       color: var(--text);
       border: 1px solid var(--border);
@@ -834,10 +834,10 @@
   <!-- Top Bar: title + settings -->
   <div id="top-bar">
     <select id="select-song" class="title-select" aria-label="Song" disabled><option value="">Song</option></select>
-    <button id="btn-upload-vmd" class="top-upload" title="Upload VMD folder" aria-label="Upload VMD"><span class="material-symbols-rounded">upload_file</span></button>
+    <button id="btn-upload-vmd" class="top-upload" title="Upload VMD folder (select the folder containing .vmd files)" aria-label="Upload VMD folder"><span class="material-symbols-rounded">upload_file</span></button>
     <span class="top-sep">X</span>
     <select id="select-pmx" class="title-select" aria-label="Model" disabled></select>
-    <button id="btn-upload-pmx" class="top-upload" title="Upload PMX folder" aria-label="Upload PMX"><span class="material-symbols-rounded">upload_file</span></button>
+    <button id="btn-upload-pmx" class="top-upload" title="Upload PMX folder (select the folder containing .pmx files)" aria-label="Upload PMX folder"><span class="material-symbols-rounded">upload_file</span></button>
     <span id="loading-status" style="display:none"></span>
   </div>
 
