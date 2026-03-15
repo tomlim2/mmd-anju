@@ -771,7 +771,7 @@ export class UI {
         overlay.classList.remove('loading', 'ready');
         overlay.classList.add('hidden');
       }
-      if (this.audio.audioElement && !this.audio.audioElement.paused) {
+      if (this.animation.playing) {
         this.animation.playing = false;
         this.audio.pause();
         this._updatePlayPauseButton(false);
