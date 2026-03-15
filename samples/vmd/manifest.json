@@ -1,3 +1,7 @@
 [
-  { "name": "HIGHER", "model": "IA ROCKS", "vmd": "higher/motion.vmd", "score": 100, "bones": 111, "morphs": 16, "duration": 221.1 }
+  { "name": "Electric Angel", "model": "Animasa Miku", "vmd": "electric-angel/motion.vmd", "score": 100, "bones": 111, "morphs": 16, "duration": 199.0 },
+  { "name": "Freely Tomorrow", "model": "Animasa Miku", "vmd": "freely-tomorrow/motion.vmd", "score": 100, "bones": 111, "morphs": 16, "duration": 252.0 },
+  { "name": "World is Mine", "model": "Animasa Miku", "vmd": "world-is-mine/motion.vmd", "score": 100, "bones": 111, "morphs": 16, "duration": 260.0 },
+  { "name": "ODDS&ENDS", "model": "Animasa Miku", "vmd": "odds-and-ends/motion.vmd", "score": 100, "bones": 111, "morphs": 16, "duration": 360.0 },
+  { "name": "Sharing the World", "model": "Animasa Miku", "vmd": "sharing-the-world/motion.vmd", "score": 100, "bones": 111, "morphs": 16, "duration": 290.0 }
 ]
