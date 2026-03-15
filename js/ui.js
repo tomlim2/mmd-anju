@@ -858,6 +858,34 @@ export class UI {
       if (chkEdgeColor.checked) applyEdgeColor();
     }, sig);
 
+    // Material Fresnel rim light
+    const rim = this.loader.rimUniforms;
+    let savedRimIntensity = 0.8;
+    document.getElementById('chk-rim-mat').addEventListener('change', (e) => {
+      if (e.target.checked) {
+        rim.intensity.value = savedRimIntensity;
+        document.getElementById('rng-rim-mat-intensity').value = savedRimIntensity;
+        document.getElementById('val-rim-mat-intensity').value = savedRimIntensity.toFixed(2);
+      } else {
+        rim.intensity.value = 0;
+      }
+    }, sig);
+    const wireRimSlider = (rngId, valId, setter) => {
+      const rng = document.getElementById(rngId);
+      const val = document.getElementById(valId);
+      rng.addEventListener('input', () => { const v = parseFloat(rng.value); val.value = v; setter(v); }, sig);
+      val.addEventListener('change', () => {
+        let v = parseFloat(val.value) || parseFloat(rng.min);
+        v = Math.max(parseFloat(rng.min), Math.min(parseFloat(rng.max), v));
+        val.value = v; rng.value = v; setter(v);
+      }, sig);
+    };
+    wireRimSlider('rng-rim-mat-intensity', 'val-rim-mat-intensity', (v) => { rim.intensity.value = v; savedRimIntensity = v; });
+    wireRimSlider('rng-rim-mat-threshold', 'val-rim-mat-threshold', (v) => { rim.threshold.value = v; });
+    document.getElementById('clr-rim-mat').addEventListener('input', (e) => {
+      rim.color.value.setHex(parseInt(e.target.value.slice(1), 16));
+    }, sig);
+
     // FOV Fix — adjust camera FOV (lower = more orthographic-like)
     // Compensate distance so apparent size stays constant: d * tan(fov/2) = const
     const camera = this.mmdScene.camera;

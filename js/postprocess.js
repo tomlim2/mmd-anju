@@ -2,7 +2,7 @@ import { PostProcessing } from 'three/webgpu';
 import {
   pass,
   uniform, screenUV,
-  vec3, float,
+  vec2, vec3, float,
   length, mix, normalize,
   dot, fract, sin, timerLocal,
 } from 'three/tsl';
@@ -37,7 +37,6 @@ export class PostProcess {
     this.brightness = uniform(DEFAULTS.contrast.brightness);
     this.grainAmount = uniform(DEFAULTS.grain.amount);
     this.vignetteIntensity = uniform(DEFAULTS.vignette.intensity);
-
     // --- Scene pass ---
     const scenePass = pass(scene, camera);
     const sceneTex = scenePass.getTextureNode('output');
@@ -60,7 +59,7 @@ export class PostProcess {
     // --- 3 output chains ---
     // High: CA + bloom + grain + per-pixel effects
     this._outputHigh = this._buildChain(caOutput.add(this._bloomNode), { grain: true });
-    // Low (with bloom off but CA still in graph — reuse for bloom toggle within high)
+    // Mid (with bloom off but CA still in graph — reuse for bloom toggle within high)
     this._outputMid = this._buildChain(caOutput, { grain: true });
     // Low: no CA, no bloom, no grain — just per-pixel math
     this._outputLow = this._buildChain(sceneTex, { grain: false });

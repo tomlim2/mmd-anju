@@ -110,6 +110,15 @@ export class MMDScene {
 
   render() {
     this.controls.update();
+
+    // Dynamic near plane — prevents clipping when zoomed in close
+    const dist = this.camera.position.distanceTo(this.controls.target);
+    const near = Math.max(0.01, dist * 0.01);
+    if (this.camera.near !== near) {
+      this.camera.near = near;
+      this.camera.updateProjectionMatrix();
+    }
+
     if (this._ppEnabled && this._postProcess) {
       this._postProcess.render();
     } else {

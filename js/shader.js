@@ -10,9 +10,22 @@ import {
   texture,
   positionLocal,
   normalLocal,
+  normalView,
+  positionView,
   float,
   vec3,
+  normalize,
+  dot,
+  step,
+  clamp,
 } from 'three/tsl';
+
+// Shared rim uniforms — all materials reference these, UI controls once
+export const rimUniforms = {
+  intensity: uniform(0),
+  threshold: uniform(0.5),
+  color: uniform(new Color(1, 1, 1)),
+};
 
 /**
  * Swap MMDLoader's ShaderMaterial to flat unlit material (one-tone, no shadows).
@@ -40,6 +53,13 @@ export function swapToToonMaterial(mesh) {
     flat.colorNode = Fn(() => {
       let color = baseColor;
       if (mapTex) color = color.mul(texture(mapTex).rgb);
+
+      // Toon rim light (hard step)
+      const viewDir = normalize(positionView.negate());
+      const NdotV = clamp(dot(normalView, viewDir), 0, 1);
+      const rim = step(rimUniforms.threshold, float(1).sub(NdotV));
+      color = color.add(vec3(rimUniforms.color).mul(rim).mul(rimUniforms.intensity));
+
       return color;
     })();
 
