@@ -42,7 +42,7 @@ export class UI {
   }
 
   async _loadDefaultModel() {
-    const defaultEntry = this._pmxManifest?.find(e => e.family === 'diva')
+    const defaultEntry = this._pmxManifest?.find(e => e.family === 'animasa')
       || this._pmxManifest?.[0];
     const path = defaultEntry
       ? 'samples/pmx/' + defaultEntry.path
@@ -104,8 +104,8 @@ export class UI {
       opt.textContent = entry.name;
       selectPmx.appendChild(opt);
     }
-    // Set default to diva family (matches _loadDefaultModel)
-    const defaultEntry = deployed.find(e => e.family === 'diva') || deployed[0];
+    // Set default to animasa family (matches _loadDefaultModel)
+    const defaultEntry = deployed.find(e => e.family === 'animasa') || deployed[0];
     if (defaultEntry) selectPmx.value = JSON.stringify(defaultEntry);
     selectPmx.disabled = deployed.length <= 1;
 
@@ -281,6 +281,10 @@ export class UI {
     });
 
     const songSelect = document.getElementById('select-song');
+    // Remove previously uploaded VMD options
+    for (const opt of [...songSelect.options]) {
+      if (opt.value.startsWith('upload:')) opt.remove();
+    }
     for (const entry of this._uploadedVmds) {
       const o = document.createElement('option');
       o.value = 'upload:' + entry.name;
@@ -323,6 +327,10 @@ export class UI {
     }));
 
     const selectPmx = document.getElementById('select-pmx');
+    // Remove previously uploaded PMX options
+    for (const opt of [...selectPmx.options]) {
+      if (opt.value.startsWith('upload:')) opt.remove();
+    }
     for (const entry of this._uploadedPmxs) {
       const o = document.createElement('option');
       o.value = 'upload:' + entry.name;
