@@ -1233,7 +1233,7 @@ export class UI {
         if (this.audio.audioElement) {
           this.audio.play();
         }
-      }, 450);
+      }, 300);
     }, { once: true });
   }
 
@@ -1297,7 +1297,7 @@ export class UI {
   _setLoadingCounter(loaded, total) {
     const counter = document.querySelector('#play-overlay .play-counter');
     if (!counter) return;
-    counter.textContent = `${loaded}/${total}`;
+    counter.textContent = total > 0 ? Math.round((loaded / total) * 100) + '%' : '';
     const progress = total > 0 ? loaded / total : 0;
     const ringFill = document.querySelector('#play-overlay .ring-fill');
     if (ringFill) {

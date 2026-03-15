@@ -141,13 +141,55 @@ export class MMDModelLoader {
     }
   }
 
-  /** Reveal the current mesh after all textures finish loading. */
+  /** Reveal the current mesh after all textures finish loading (fade-in). */
   async reveal() {
     await this._texturesReady;
-    if (this.mesh) this.mesh.visible = true;
+    if (!this.mesh) return;
+
+    // Collect all materials and save original opacity/transparent values
+    const allMats = [];
+    const meshMats = Array.isArray(this.mesh.material) ? this.mesh.material : [this.mesh.material];
+    for (const m of meshMats) {
+      allMats.push({ mat: m, origOpacity: m.opacity, origTransparent: m.transparent });
+      m.opacity = 0;
+      m.transparent = true;
+    }
     const chk = document.getElementById('chk-edge');
     this.edgeVisible = chk ? chk.checked : true;
+    if (this.outlineMesh) {
+      const outMats = this.outlineMesh.userData.outlineMaterials || [];
+      for (const m of outMats) {
+        allMats.push({ mat: m, origOpacity: m.opacity, origTransparent: m.transparent });
+        m.opacity = 0;
+        m.transparent = true;
+      }
+    }
+
+    // Make meshes visible (opacity 0, so invisible initially)
+    this.mesh.visible = true;
     if (this.outlineMesh) this.outlineMesh.visible = this.edgeVisible;
+
+    // Animate opacity 0→1 over ~300ms
+    const duration = 300;
+    const start = performance.now();
+    await new Promise((resolve) => {
+      const tick = (now) => {
+        const t = Math.min((now - start) / duration, 1);
+        for (const { mat, origOpacity } of allMats) {
+          mat.opacity = t * origOpacity;
+        }
+        if (t < 1) {
+          requestAnimationFrame(tick);
+        } else {
+          // Restore original transparent flags
+          for (const { mat, origTransparent } of allMats) {
+            mat.transparent = origTransparent;
+          }
+          resolve();
+        }
+      };
+      requestAnimationFrame(tick);
+    });
   }
 
   _removeCurrentMesh() {
