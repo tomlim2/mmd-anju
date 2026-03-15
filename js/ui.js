@@ -289,7 +289,7 @@ export class UI {
   _loadSampleSong(song) {
     return this._loadVMDFromPath(
       'samples/vmd/' + song.vmd,
-      'samples/vmd/' + song.audio,
+      song.audio ? 'samples/vmd/' + song.audio : null,
     );
   }
 
@@ -304,19 +304,25 @@ export class UI {
 
   async _loadVMDFromPath(vmdPath, audioPath) {
     try {
-      const [vmdRes, audioRes] = await Promise.all([
-        fetch(vmdPath),
-        fetch(audioPath),
-      ]);
+      const fetches = [fetch(vmdPath)];
+      if (audioPath) fetches.push(fetch(audioPath));
+
+      const responses = await Promise.all(fetches);
+      const vmdRes = responses[0];
       if (!vmdRes.ok) throw new Error(`Failed to fetch VMD: ${vmdRes.status}`);
-      if (!audioRes.ok) throw new Error(`Failed to fetch audio: ${audioRes.status}`);
 
       const vmdBlob = await vmdRes.blob();
       const vmdFile = new File([vmdBlob], vmdPath.split('/').pop());
-      const audioBlob = await audioRes.blob();
-      const audioFile = new File([audioBlob], audioPath.split('/').pop());
 
-      this.audio.loadFromFile(audioFile);
+      if (audioPath) {
+        const audioRes = responses[1];
+        if (!audioRes.ok) throw new Error(`Failed to fetch audio: ${audioRes.status}`);
+        const audioBlob = await audioRes.blob();
+        const audioFile = new File([audioBlob], audioPath.split('/').pop());
+        this.audio.loadFromFile(audioFile);
+      } else {
+        this.audio.stop();
+      }
 
       this._vmdPath = vmdPath;
       this._updateDebugPaths();
@@ -333,7 +339,7 @@ export class UI {
         const autoplay = overlay.classList.contains('hidden');
         this.animation.playing = autoplay;
         this._updatePlayPauseButton(autoplay);
-        if (autoplay) this.audio.play();
+        if (autoplay && audioPath) this.audio.play();
       } else {
         this._pendingVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._currentVmd = null;
