@@ -329,8 +329,11 @@ export class UI {
         this._currentVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._pendingVmd = null;
 
-        this.animation.playing = false;
-        this._updatePlayPauseButton(false);
+        const overlay = document.getElementById('play-overlay');
+        const autoplay = overlay.classList.contains('hidden');
+        this.animation.playing = autoplay;
+        this._updatePlayPauseButton(autoplay);
+        if (autoplay) this.audio.play();
       } else {
         this._pendingVmd = { vmdPath, audioPath, vmdBlob: vmdFile };
         this._currentVmd = null;
