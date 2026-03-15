@@ -1216,11 +1216,9 @@ export class UI {
     this.rippleFx.enabled = document.getElementById('chk-ripple').checked;
     this.mirrorFx.enabled = document.getElementById('chk-mirror').checked;
     const label = overlay.querySelector('.play-label');
-    const sublabel = overlay.querySelector('.play-sublabel');
     const songSelect = document.getElementById('select-song');
     const song = this._sampleSongs.find(s => s.vmd === songSelect?.value);
     if (label) label.textContent = song?.name || 'Ready';
-    if (sublabel) sublabel.textContent = 'Click to play';
     overlay.addEventListener('click', () => {
       overlay.classList.remove('ready');
       overlay.classList.add('dismissing');
@@ -1232,7 +1230,7 @@ export class UI {
         if (this.audio.audioElement) {
           this.audio.play();
         }
-      }, 500);
+      }, 450);
     }, { once: true });
   }
 

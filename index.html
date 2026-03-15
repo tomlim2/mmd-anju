@@ -464,15 +464,7 @@
       animation: label-fade-in 0.4s ease 0.5s both;
     }
 
-    .play-sublabel {
-      font-size: 13px;
-      color: rgba(255,255,255,0.5);
-      letter-spacing: 0.5px;
-      opacity: 0;
-    }
-    #play-overlay.ready .play-sublabel {
-      animation: label-fade-in 0.4s ease 0.9s both;
-    }
+    .play-sublabel { display: none; }
 
     /* Ring fills completely */
     @keyframes ring-complete {
@@ -526,20 +518,23 @@
     /* ── Dismiss state (click to play → exit) ── */
     #play-overlay.dismissing {
       pointer-events: none;
-      transition: background 0.45s ease;
+      transition: background 0.15s ease 0.15s;
       background: rgba(0,0,0,0);
     }
     #play-overlay.dismissing .play-circle {
-      animation: dismiss-shrink 0.45s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+      animation: dismiss-grow 0.15s ease-out forwards, dismiss-shrink 0.2s ease-in 0.2s forwards;
     }
     #play-overlay.dismissing .play-circle::before { animation: none; opacity: 0; }
-    #play-overlay.dismissing .play-label,
-    #play-overlay.dismissing .play-sublabel {
+    #play-overlay.dismissing .play-label {
       transition: opacity 0.3s ease;
       opacity: 0 !important;
     }
-    @keyframes dismiss-shrink {
+    @keyframes dismiss-grow {
       0%   { transform: scale(1); }
+      100% { transform: scale(1.12); }
+    }
+    @keyframes dismiss-shrink {
+      0%   { transform: scale(1.12); }
       100% { transform: scale(0); }
     }
 
@@ -555,7 +550,9 @@
 
     /* Label */
     #play-overlay .play-label {
-      font-size: 18px;
+      position: absolute;
+      bottom: calc(50% + 60px);
+      font-size: 24px;
       color: rgba(255,255,255,0.85);
       letter-spacing: 0.5px;
       opacity: 0;
