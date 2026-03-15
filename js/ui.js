@@ -876,6 +876,17 @@ export class UI {
           ? this.audio.currentTime
           : this.animation.getCurrentTime();
         this._updateTimelineDisplay(time, duration);
+
+        // End-of-animation detection (no audio to fire onEnded)
+        if (!this.audio.duration && this.animation.playing
+            && duration > 0 && time >= duration) {
+          this.animation.playing = false;
+          this._updatePlayPauseButton(false);
+          this.animation.seekTo(0);
+          this.riseFx.seekTo(0);
+          this.rippleFx.seekTo(0);
+          this._updateTimelineDisplay(0, duration);
+        }
       }
       this._tlRAF = requestAnimationFrame(updateLoop);
     };
