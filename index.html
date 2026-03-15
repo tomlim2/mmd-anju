@@ -120,6 +120,25 @@
     #top-bar .title-select:disabled { opacity: 0.4; cursor: default; }
     #top-bar .title-select option { background: var(--panel); color: var(--text); font-size: 12px; font-weight: 400; }
 
+    .top-upload {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text-dim);
+      width: 26px;
+      height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      flex-shrink: 0;
+      margin-left: -6px;
+    }
+    .top-upload .material-symbols-rounded { font-size: 16px; }
+    .top-upload:hover { color: var(--text-bright); border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.06); }
+    .top-upload.uploaded { color: var(--accent); border-color: var(--accent-dim); }
+
     /* Utility selects */
     #top-bar select:not(.title-select) {
       background: rgba(255,255,255,0.1);
@@ -815,8 +834,10 @@
   <!-- Top Bar: title + settings -->
   <div id="top-bar">
     <select id="select-song" class="title-select" aria-label="Song" disabled><option value="">Song</option></select>
+    <button id="btn-upload-vmd" class="top-upload" title="Upload VMD folder" aria-label="Upload VMD"><span class="material-symbols-rounded">upload_file</span></button>
     <div class="top-sep"></div>
     <select id="select-pmx" class="title-select" aria-label="Model" disabled></select>
+    <button id="btn-upload-pmx" class="top-upload" title="Upload PMX folder" aria-label="Upload PMX"><span class="material-symbols-rounded">upload_file</span></button>
     <span id="loading-status" style="display:none"></span>
   </div>
 
@@ -1011,5 +1032,7 @@
       }
     })();
   </script>
+  <input type="file" id="input-vmd" webkitdirectory multiple accept=".vmd,.mp3,.ogg,.m4a,.wav" hidden>
+  <input type="file" id="input-pmx" webkitdirectory multiple accept=".pmx,.bmp,.png,.jpg,.tga,.spa,.sph" hidden>
 </body>
 </html>

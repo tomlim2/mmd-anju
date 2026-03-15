@@ -29,6 +29,7 @@ export class UI {
     this.loader.onProgress = (loaded, total) => this._setLoadingCounter(loaded, total);
     this._pmxReady = this._initPmxSelect();
     this._initSampleMode();
+    this._initUpload();
     this._initPlayback();
     this._initTimeline();
     this._initFxSelectors();
@@ -110,6 +111,13 @@ export class UI {
 
     selectPmx.addEventListener('change', async () => {
       if (!selectPmx.value) return;
+      // Handle uploaded PMX selection
+      if (selectPmx.value.startsWith('upload:')) {
+        const name = selectPmx.value.slice(7);
+        const idx = this._uploadedPmxs.findIndex(p => p.name === name);
+        if (idx >= 0) await this._loadUploadedPmx(idx);
+        return;
+      }
       const entry = JSON.parse(selectPmx.value);
       this._currentPmxEntry = entry;
       if (entry.type === 'zip') {
@@ -238,6 +246,146 @@ export class UI {
     this._updatePlayPauseButton(wasPlaying);
   }
 
+  // --- Upload Mode ---
+
+  _initUpload() {
+    const btnVmd = document.getElementById('btn-upload-vmd');
+    const btnPmx = document.getElementById('btn-upload-pmx');
+    const inputVmd = document.getElementById('input-vmd');
+    const inputPmx = document.getElementById('input-pmx');
+
+    this._uploadedVmds = [];
+    this._uploadedPmxs = [];
+
+    btnVmd.onclick = () => inputVmd.click();
+    btnPmx.onclick = () => inputPmx.click();
+
+    inputVmd.onchange = (e) => this._handleVmdUpload(e.target.files);
+    inputPmx.onchange = (e) => this._handlePmxUpload(e.target.files);
+  }
+
+  _handleVmdUpload(fileList) {
+    const files = Array.from(fileList);
+    const vmds = files.filter(f => /\.vmd$/i.test(f.name));
+    const audios = files.filter(f => /\.(mp3|ogg|m4a|wav)$/i.test(f.name));
+
+    if (!vmds.length) return;
+
+    this._uploadedVmds = vmds.map(vmdFile => {
+      const stem = vmdFile.name.replace(/\.vmd$/i, '').toLowerCase();
+      const audioFile = audios.find(a => {
+        const aStem = a.name.replace(/\.(mp3|ogg|m4a|wav)$/i, '').toLowerCase();
+        return aStem === stem;
+      }) || audios[0] || null;
+      return { name: vmdFile.name.replace(/\.vmd$/i, ''), file: vmdFile, audioFile };
+    });
+
+    const songSelect = document.getElementById('select-song');
+    for (const entry of this._uploadedVmds) {
+      const o = document.createElement('option');
+      o.value = 'upload:' + entry.name;
+      o.textContent = entry.name;
+      songSelect.appendChild(o);
+    }
+    songSelect.value = 'upload:' + this._uploadedVmds[0].name;
+    songSelect.disabled = false;
+
+    document.getElementById('btn-upload-vmd').classList.add('uploaded');
+    this._loadUploadedVmd(0);
+  }
+
+  _handlePmxUpload(fileList) {
+    const files = Array.from(fileList);
+    const pmxFiles = files.filter(f => /\.pmx$/i.test(f.name));
+
+    if (!pmxFiles.length) return;
+
+    const allBlobs = new Map();
+    for (const f of files) allBlobs.set(f.name, f);
+
+    this._uploadedPmxs = pmxFiles.map(pmxFile => ({
+      name: pmxFile.name.replace(/\.pmx$/i, ''),
+      pmxFile,
+      blobs: allBlobs,
+    }));
+
+    const selectPmx = document.getElementById('select-pmx');
+    for (const entry of this._uploadedPmxs) {
+      const o = document.createElement('option');
+      o.value = 'upload:' + entry.name;
+      o.textContent = entry.name;
+      selectPmx.appendChild(o);
+    }
+    selectPmx.value = 'upload:' + this._uploadedPmxs[0].name;
+    selectPmx.disabled = false;
+
+    document.getElementById('btn-upload-pmx').classList.add('uploaded');
+    this._loadUploadedPmx(0);
+  }
+
+  async _loadUploadedVmd(index) {
+    const entry = this._uploadedVmds[index];
+    if (!entry) return;
+
+    if (entry.audioFile) {
+      this.audio.loadFromFile(entry.audioFile);
+    } else {
+      this.audio.stop();
+    }
+
+    this._vmdPath = entry.name;
+    this._updateDebugPaths();
+
+    if (this.loader.mesh) {
+      this.animation.destroy();
+      this.riseFx.resetTime();
+      this.rippleFx.resetTime();
+      await this._applyVmdToMesh(entry.file);
+      this._currentVmd = { vmdPath: entry.name, audioPath: '', vmdBlob: entry.file };
+      this._pendingVmd = null;
+
+      const overlay = document.getElementById('play-overlay');
+      const autoplay = overlay.classList.contains('hidden');
+      this.animation.playing = autoplay;
+      this._updatePlayPauseButton(autoplay);
+      if (autoplay && entry.audioFile) this.audio.play();
+    } else {
+      this._pendingVmd = { vmdPath: entry.name, audioPath: '', vmdBlob: entry.file };
+      this._currentVmd = null;
+    }
+  }
+
+  async _loadUploadedPmx(index) {
+    const entry = this._uploadedPmxs[index];
+    if (!entry) return;
+
+    const statusEl = document.getElementById('loading-status');
+    statusEl.textContent = 'Loading...';
+    this._showLoading('Loading...');
+
+    const savedTime = this.audio.currentTime;
+    const wasPlaying = this.animation.playing;
+
+    try {
+      await this.loader.loadPMXFromBlobs(entry.pmxFile, entry.blobs);
+      this._setLoadingText('Applying motion...');
+      this.animation.destroy();
+      this.loader.commitPendingMesh();
+      this._pmxPath = entry.name + '.pmx';
+      this._updateDebugPaths();
+
+      await this._reapplyCurrentVmd(savedTime, wasPlaying);
+      await this.loader.reveal();
+      this._hideLoading();
+      statusEl.textContent = '';
+    } catch (err) {
+      console.error('Upload PMX load error:', err);
+      this._hideLoading();
+      statusEl.textContent = 'Load failed';
+      setTimeout(() => { if (statusEl.textContent === 'Load failed') statusEl.textContent = ''; }, 3000);
+    }
+  }
+
   // --- Sample Mode ---
 
   _sampleSongs = [];
@@ -271,6 +419,13 @@ export class UI {
 
     songSelect.addEventListener('change', async () => {
       if (!songSelect.value) return;
+      // Handle uploaded VMD selection
+      if (songSelect.value.startsWith('upload:')) {
+        const name = songSelect.value.slice(7);
+        const idx = this._uploadedVmds.findIndex(v => v.name === name);
+        if (idx >= 0) await this._loadUploadedVmd(idx);
+        return;
+      }
       const song = this._sampleSongs.find(s => s.vmd === songSelect.value);
       if (!song) return;
       syncSelectColor();
