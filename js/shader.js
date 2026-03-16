@@ -70,6 +70,12 @@ export function swapToToonMaterial(mesh) {
     if (isAdditiveOverlay) {
       flat.blending = AdditiveBlending;
     }
+    // Non-overlay materials: discard fully transparent texture pixels.
+    // Keeps material in opaque queue (no render-order issues) while
+    // preventing white rendering from α=0 regions (e.g. 昔涟 纹饰).
+    if (!isOverlay && mapTex) {
+      flat.alphaTest = 0.01;
+    }
 
     flat.colorNode = Fn(() => {
       // Raw texture color — used for basic mode output
@@ -106,10 +112,10 @@ export function swapToToonMaterial(mesh) {
       const lift = vec3(shadowLift);
       color = color.add(lift).sub(color.mul(lift));
 
-      // Overlay with diffuse alpha: use texture alpha for per-pixel transparency.
-      // Covers multiply sphere overlays (e.g. 昔涟 衣+/衣++) where α=0 areas
-      // have white RGB and must be fully transparent.
-      if (isOverlay && mapTex) {
+      // Use texture alpha for per-pixel transparency on all materials with a map.
+      // Overlays: proper masking via NormalBlending (transparent=true).
+      // Non-overlays: works with alphaTest to discard α≈0 pixels.
+      if (mapTex) {
         flat.opacityNode = texture(mapTex).a;
       }
 
