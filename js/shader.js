@@ -70,6 +70,11 @@ export function swapToToonMaterial(mesh) {
     if (isAdditiveOverlay) {
       flat.blending = AdditiveBlending;
     }
+    // opacityNode BEFORE colorNode — part of node graph from the start.
+    // Inside Fn() it was a side effect invisible to reflector render passes.
+    if (mapTex) {
+      flat.opacityNode = texture(mapTex).a;
+    }
     // Non-overlay materials: discard fully transparent texture pixels.
     // Keeps material in opaque queue (no render-order issues) while
     // preventing white rendering from α=0 regions (e.g. 昔涟 纹饰).
@@ -88,9 +93,7 @@ export function swapToToonMaterial(mesh) {
       if (isAdditiveOverlay) {
         const sphere = texture(matcapTex, matcapUV).rgb;
         if (mapTex) {
-          const map = texture(mapTex);
-          flat.opacityNode = map.a;
-          return sphere.mul(map.rgb).mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
+          return sphere.mul(texture(mapTex).rgb).mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
         }
         return sphere.mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
       }
@@ -111,13 +114,6 @@ export function swapToToonMaterial(mesh) {
       // screen(color, lift) = color + lift - color * lift
       const lift = vec3(shadowLift);
       color = color.add(lift).sub(color.mul(lift));
-
-      // Use texture alpha for per-pixel transparency on all materials with a map.
-      // Overlays: proper masking via NormalBlending (transparent=true).
-      // Non-overlays: works with alphaTest to discard α≈0 pixels.
-      if (mapTex) {
-        flat.opacityNode = texture(mapTex).a;
-      }
 
       // Rim light only for non-overlay materials
       if (!isOverlay) {
