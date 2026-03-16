@@ -59,6 +59,7 @@ export function swapToToonMaterial(mesh) {
     const baseColor = uniform(mat.color || new Color(1, 1, 1));
     const mapTex = mat.map;
     const matcapTex = mat.matcap;
+    const mapSample = mapTex ? texture(mapTex) : null;
 
     const isOverlay = mat.name?.endsWith('+');
     const isAdditiveOverlay = isOverlay && matcapTex && mat.matcapCombine === AddOperation && mat.opacity < 1;
@@ -72,28 +73,28 @@ export function swapToToonMaterial(mesh) {
     }
     // opacityNode BEFORE colorNode — part of node graph from the start.
     // Inside Fn() it was a side effect invisible to reflector render passes.
-    if (mapTex) {
-      flat.opacityNode = texture(mapTex).a;
+    if (mapSample) {
+      flat.opacityNode = mapSample.a;
     }
     // Non-overlay materials: discard fully transparent texture pixels.
     // Keeps material in opaque queue (no render-order issues) while
     // preventing white rendering from α=0 regions (e.g. 昔涟 纹饰).
-    if (!isOverlay && mapTex) {
+    if (!isOverlay && mapSample) {
       flat.alphaTest = 0.01;
     }
 
     flat.colorNode = Fn(() => {
       // Raw texture color — used for basic mode output
       let raw = baseColor;
-      if (mapTex) raw = raw.mul(texture(mapTex).rgb);
+      if (mapSample) raw = raw.mul(mapSample.rgb);
 
       // Additive sphere overlay: output only sphere, masked by diffuse alpha.
       // AdditiveBlending → GPU: src.rgb × src.a + dst.rgb
       // α=0 (97%+ area) → no highlight; α>0 → highlight at texture-defined intensity.
       if (isAdditiveOverlay) {
         const sphere = texture(matcapTex, matcapUV).rgb;
-        if (mapTex) {
-          return sphere.mul(texture(mapTex).rgb).mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
+        if (mapSample) {
+          return sphere.mul(mapSample.rgb).mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
         }
         return sphere.mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
       }
