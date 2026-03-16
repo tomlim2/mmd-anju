@@ -1,6 +1,6 @@
 import { LoadingManager } from 'three/webgpu';
 import { MMDLoader } from '../vendor/MMDLoader.js';
-import { swapToToonMaterial, createOutlineMesh, rimUniforms } from './shader.js';
+import { swapToToonMaterial, createOutlineMesh, rimUniforms, shadowLift, basicMode } from './shader.js';
 import { findMojibakeMatch } from './encoding.js';
 
 export class MMDModelLoader {
@@ -12,6 +12,8 @@ export class MMDModelLoader {
     this._blobUrls = [];
     this._texturesReady = Promise.resolve();
     this.rimUniforms = rimUniforms;
+    this.shadowLift = shadowLift;
+    this.basicMode = basicMode;
     this.onStatus = null; // (msg: string) => void
     this.onProgress = null; // (loaded: number, total: number) => void
   }

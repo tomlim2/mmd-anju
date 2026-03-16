@@ -1091,6 +1091,14 @@ export class UI {
       rim.color.value.setHex(parseInt(e.target.value.slice(1), 16));
     }, sig);
 
+    // Basic mode — raw texture only, bypass all effects
+    document.getElementById('chk-basic-mode').addEventListener('change', (e) => {
+      this.loader.basicMode.value = e.target.checked ? 1 : 0;
+    }, sig);
+
+    // Shadow Lift — screen-blend a flat value to raise dark areas
+    wireRimSlider('rng-shadow-lift', 'val-shadow-lift', (v) => { this.loader.shadowLift.value = v; });
+
     // FOV Fix — adjust camera FOV (lower = more orthographic-like)
     // Compensate distance so apparent size stays constant: d * tan(fov/2) = const
     const camera = this.mmdScene.camera;

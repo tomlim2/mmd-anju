@@ -23,12 +23,19 @@ import {
   matcapUV,
 } from 'three/tsl';
 
-// Shared rim uniforms — all materials reference these, UI controls once
+// Shared uniforms — all materials reference these, UI controls once
 export const rimUniforms = {
   intensity: uniform(0),
   threshold: uniform(0.5),
   color: uniform(new Color(1, 1, 1)),
 };
+
+// Shadow lift: screen-blends a flat value to raise dark areas.
+// 0 = off (default), 0.3 ≈ MMD ambient, 0.5 = strong lift.
+export const shadowLift = uniform(0);
+
+// Basic mode: 1 = raw baseColor × texture only, 0 = full toon pipeline.
+export const basicMode = uniform(0);
 
 /**
  * Swap MMDLoader's ShaderMaterial to flat unlit material (one-tone, no shadows).
@@ -65,14 +72,24 @@ export function swapToToonMaterial(mesh) {
     }
 
     flat.colorNode = Fn(() => {
-      // Additive sphere overlay: output only attenuated sphere.
-      // No diffuse — base material already has it in the framebuffer.
+      // Raw texture color — used for basic mode output
+      let raw = baseColor;
+      if (mapTex) raw = raw.mul(texture(mapTex).rgb);
+
+      // Additive sphere overlay: output only sphere, masked by diffuse alpha.
+      // AdditiveBlending → GPU: src.rgb × src.a + dst.rgb
+      // α=0 (97%+ area) → no highlight; α>0 → highlight at texture-defined intensity.
       if (isAdditiveOverlay) {
-        return texture(matcapTex, matcapUV).rgb.mul(float(0.4));
+        const sphere = texture(matcapTex, matcapUV).rgb;
+        if (mapTex) {
+          const map = texture(mapTex);
+          flat.opacityNode = map.a;
+          return sphere.mul(map.rgb).mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
+        }
+        return sphere.mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
       }
 
-      let color = baseColor;
-      if (mapTex) color = color.mul(texture(mapTex).rgb);
+      let color = raw;
 
       if (matcapTex) {
         const sphere = texture(matcapTex, matcapUV).rgb;
@@ -84,6 +101,11 @@ export function swapToToonMaterial(mesh) {
         }
       }
 
+      // Shadow lift: screen blend to raise dark areas
+      // screen(color, lift) = color + lift - color * lift
+      const lift = vec3(shadowLift);
+      color = color.add(lift).sub(color.mul(lift));
+
       // Rim light only for non-overlay materials
       if (!isOverlay) {
         const viewDir = normalize(positionView.negate());
@@ -92,7 +114,8 @@ export function swapToToonMaterial(mesh) {
         color = color.add(vec3(rimUniforms.color).mul(rim).mul(rimUniforms.intensity));
       }
 
-      return color;
+      // Basic mode: bypass all effects, output raw baseColor × texture
+      return color.mul(float(1).sub(basicMode)).add(raw.mul(basicMode));
     })();
 
     mat.dispose();
