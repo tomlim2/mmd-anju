@@ -61,7 +61,7 @@ export function swapToToonMaterial(mesh) {
     const matcapTex = mat.matcap;
 
     const isOverlay = mat.name?.endsWith('+');
-    const isAdditiveOverlay = isOverlay && matcapTex && mat.matcapCombine === AddOperation;
+    const isAdditiveOverlay = isOverlay && matcapTex && mat.matcapCombine === AddOperation && mat.opacity < 1;
 
     if (isOverlay) {
       flat.depthWrite = false;
