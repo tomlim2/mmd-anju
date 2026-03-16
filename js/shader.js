@@ -106,6 +106,13 @@ export function swapToToonMaterial(mesh) {
       const lift = vec3(shadowLift);
       color = color.add(lift).sub(color.mul(lift));
 
+      // Overlay with diffuse alpha: use texture alpha for per-pixel transparency.
+      // Covers multiply sphere overlays (e.g. 昔涟 衣+/衣++) where α=0 areas
+      // have white RGB and must be fully transparent.
+      if (isOverlay && mapTex) {
+        flat.opacityNode = texture(mapTex).a;
+      }
+
       // Rim light only for non-overlay materials
       if (!isOverlay) {
         const viewDir = normalize(positionView.negate());
