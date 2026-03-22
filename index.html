@@ -355,8 +355,11 @@
       max-width: 450px;
       z-index: 20;
     }
+    @media (pointer: coarse), (max-width: 1399px) {
+      #debug-panel { display: none; }
+    }
     @media (pointer: coarse), (max-width: 768px) {
-      #debug-panel, #fx-panel { display: none; }
+      #fx-panel { display: none; }
     }
     #debug-info {
       font-size: 11px;
