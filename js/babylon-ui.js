@@ -537,7 +537,7 @@ export class BabylonUI {
     for (const m of oldMeshes) m.dispose();
 
     try {
-      const result = await SceneLoader.ImportMeshAsync(undefined, '', pmxUrl, scene);
+      const result = await SceneLoader.ImportMeshAsync(undefined, '', pmxUrl + '#.pmx', scene);
       const mmdMesh = result.meshes[0];
       if (!mmdMesh) throw new Error('No mesh loaded');
 
