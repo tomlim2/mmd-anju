@@ -90,7 +90,14 @@ export class BabylonUI {
     sel.disabled = this._pmxManifest.length <= 1;
 
     sel.addEventListener('change', async () => {
-      if (!sel.value || sel.value.startsWith('upload:')) return;
+      if (!sel.value) return;
+      // Handle uploaded PMX selection
+      if (sel.value.startsWith('upload:')) {
+        const name = sel.value.slice(7);
+        const idx = this._uploadedPmxs.findIndex(p => p.name === name);
+        if (idx >= 0) await this._loadUploadedPmx(idx);
+        return;
+      }
       const entry = JSON.parse(sel.value);
       const wasPlaying = this._playing;
       await this._loadPmx('samples/pmx/' + entry.path);
@@ -514,9 +521,32 @@ export class BabylonUI {
       return;
     }
 
-    const pmxFile = pmxFiles[0];
+    // Store all uploaded PMX files (with their sibling textures)
+    this._uploadedPmxs = pmxFiles.map(f => ({
+      name: f.name.replace(/\.pmx$/i, ''),
+      file: f,
+    }));
 
-    this._setStatus('Loading uploaded model...');
+    // Populate PMX select
+    const sel = this._els['select-pmx'];
+    sel.innerHTML = '';
+    for (const entry of this._uploadedPmxs) {
+      const o = document.createElement('option');
+      o.value = 'upload:' + entry.name;
+      o.textContent = entry.name;
+      sel.appendChild(o);
+    }
+    sel.value = 'upload:' + this._uploadedPmxs[0].name;
+    sel.disabled = this._uploadedPmxs.length <= 1;
+
+    this._els['btn-upload-pmx'].classList.add('uploaded');
+    await this._loadUploadedPmx(0);
+  }
+
+  async _loadUploadedPmx(index) {
+    const entry = this._uploadedPmxs[index];
+    if (!entry) return;
+
     const { scene, mmdRuntime } = this._app;
     const wasPlaying = this._playing;
 
@@ -528,9 +558,10 @@ export class BabylonUI {
     const oldMeshes = scene.meshes.filter(m => m.metadata?.isMmdModel);
     for (const m of oldMeshes) m.dispose();
 
+    this._setStatus('Loading model...');
+
     try {
-      // Pass File object directly — PmLoader.loadFile accepts File
-      const result = await SceneLoader.ImportMeshAsync(undefined, '', pmxFile, scene);
+      const result = await SceneLoader.ImportMeshAsync(undefined, '', entry.file, scene);
       const mmdMesh = result.meshes[0];
       if (!mmdMesh) throw new Error('No mesh loaded');
 
@@ -539,20 +570,12 @@ export class BabylonUI {
       }
 
       this._app.mmdModel = mmdRuntime.createMmdModel(mmdMesh);
-
-      // Update select
-      const sel = this._els['select-pmx'];
-      const name = pmxFile.name.replace(/\.pmx$/i, '');
-      sel.innerHTML = `<option value="upload:${name}">${name}</option>`;
-      sel.disabled = true;
-
-      this._els['btn-upload-pmx'].classList.add('uploaded');
       this._setStatus('');
 
       // Reapply current VMD on the new model
       await this._reapplyCurrentVmd();
       if (wasPlaying) {
-        this._app.mmdRuntime.playAnimation();
+        mmdRuntime.playAnimation();
         this._playing = true;
         this._updatePlayPauseBtn(true);
       }
