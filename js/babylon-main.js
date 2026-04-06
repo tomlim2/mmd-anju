@@ -21,10 +21,11 @@ import { VmdLoader } from 'babylon-mmd/esm/Loader/vmdLoader';
 import { SdefInjector } from 'babylon-mmd/esm/Loader/sdefInjector';
 import { MmdStandardMaterialBuilder } from 'babylon-mmd/esm/Loader/mmdStandardMaterialBuilder';
 import { StreamAudioPlayer } from 'babylon-mmd/esm/Runtime/Audio/streamAudioPlayer';
+import { PmxLoader } from 'babylon-mmd/esm/Loader/pmxLoader';
 
 // Side effect imports
 import 'babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation';
-import 'babylon-mmd/esm/Loader/pmxLoader';
+import 'babylon-mmd/esm/Loader/mmdOutlineRenderer';
 
 import { BabylonUI } from './babylon-ui.js';
 
@@ -112,9 +113,13 @@ async function main() {
   // VmdLoader
   app.vmdLoader = new VmdLoader(scene);
 
-  // Material builder
+  // Material builder (toon shading + outline from PMX data)
   const materialBuilder = new MmdStandardMaterialBuilder();
-  materialBuilder.loadOutlineRenderingProperties = () => { /* skip outline for now */ };
+  SceneLoader.OnPluginActivatedObservable.add((loader) => {
+    if (loader.name === 'pmx') {
+      loader.materialBuilder = materialBuilder;
+    }
+  });
 
   // Render loop
   engine.runRenderLoop(() => scene.render());
