@@ -3,22 +3,349 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="data:,">
   <title>MMD Player — Babylon.js</title>
+
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap">
+
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a1a; }
-    #canvas { width: 100%; height: 100%; display: block; touch-action: none; }
-    #status {
-      position: fixed; top: 16px; left: 16px;
-      color: #aaa; font: 13px/1.5 monospace;
-      background: rgba(0,0,0,0.6); padding: 8px 12px; border-radius: 4px;
-      z-index: 10; pointer-events: none;
+    :root {
+      --bg: #1a1a1a;
+      --panel: #232323;
+      --surface: #2a2a2a;
+      --border: #2f2f2f;
+      --text: #d4d4d4;
+      --text-dim: #999;
+      --accent: #5b9bd5;
+      --accent-dim: #5b9bd540;
+      --track: #3a3a3a;
+      --thumb: #888;
+      --thumb-hover: #aaa;
+      --text-bright: #fff;
     }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+
+    /* ── Status (loading indicator) ── */
+    #status {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--text-dim);
+      font: 13px/1.5 monospace;
+      z-index: 5; pointer-events: none;
+    }
+
+    /* ── Top Bar ── */
+    #top-bar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 14px;
+      z-index: 20;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.75) 0%, transparent 100%);
+    }
+
+    .top-sep {
+      font-size: 10px;
+      color: rgba(255,255,255,0.25);
+      flex-shrink: 0;
+      user-select: none;
+    }
+
+    /* Title-style dropdowns */
+    #top-bar .title-select {
+      background: none;
+      border: none;
+      color: var(--text-bright);
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      max-width: 300px;
+      padding: 2px 0;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 2px center;
+      padding-right: 14px;
+    }
+    #top-bar .title-select:hover { color: var(--text-bright); }
+    #top-bar .title-select:disabled { opacity: 0.4; cursor: default; }
+    #top-bar .title-select option { background: var(--panel); color: var(--text); font-size: 12px; font-weight: 400; }
+
+    .top-upload {
+      background: none;
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text-dim);
+      width: 26px; height: 26px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      flex-shrink: 0;
+      margin-left: -6px;
+    }
+    .top-upload .material-symbols-rounded { font-size: 16px; }
+    .top-upload:hover { color: var(--text-bright); border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.06); }
+    .top-upload.uploaded { color: var(--accent); border-color: var(--accent-dim); }
+
+    #loading-status {
+      font-size: 11px;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+
+    /* ── Bottom Player Bar ── */
+    #player-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 20;
+      background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.5) 60%, transparent 100%);
+      padding: 0 12px 8px;
+    }
+
+    /* Timeline */
+    #timeline {
+      position: relative;
+      width: 100%;
+      padding: 10px 0 6px;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+    }
+
+    #tl-bar {
+      height: 3px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 1.5px;
+      overflow: hidden;
+      pointer-events: none;
+      transition: height 0.12s;
+    }
+
+    #timeline:hover #tl-bar,
+    #timeline.dragging #tl-bar { height: 5px; }
+
+    #tl-fill {
+      height: 100%;
+      background: #aaa;
+      border-radius: 1.5px;
+      width: 100%;
+      transform-origin: left;
+      transform: scaleX(0);
+      will-change: transform;
+    }
+
+    #tl-thumb {
+      position: absolute;
+      top: 50%; left: 0%;
+      width: 13px; height: 13px;
+      background: #aaa;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.12s;
+      pointer-events: none;
+    }
+
+    #timeline:hover #tl-thumb,
+    #timeline.dragging #tl-thumb { opacity: 1; }
+
+    /* Controls row */
+    #player-controls {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      height: 36px;
+    }
+
+    #player-controls button {
+      background: none;
+      border: none;
+      color: var(--text);
+      cursor: pointer;
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      transition: background 0.12s;
+      flex-shrink: 0;
+    }
+    #player-controls button .material-symbols-rounded { font-size: 20px; }
+    #player-controls button:hover { background: rgba(255,255,255,0.1); }
+
+    #btn-playpause { width: 40px !important; height: 40px !important; }
+    #btn-playpause .material-symbols-rounded { font-size: 28px; }
+
+    /* Volume */
+    #volume-group {
+      display: flex;
+      align-items: center;
+      margin-left: 2px;
+    }
+
+    #volume {
+      width: 0; opacity: 0;
+      transition: width 0.2s, opacity 0.2s, margin 0.2s;
+      accent-color: #888;
+      cursor: pointer;
+      margin-left: 0;
+    }
+
+    #volume-group:hover #volume {
+      width: 52px; opacity: 1; margin-left: 4px;
+    }
+
+    @media (pointer: coarse) {
+      #volume { width: 52px; opacity: 1; margin-left: 4px; }
+    }
+
+    /* Time display */
+    .time-display {
+      font-size: 12px;
+      color: var(--text-dim);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+      user-select: none;
+      margin-left: 10px;
+    }
+
+    /* ── Play overlay ── */
+    #play-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      z-index: 16;
+      background: rgba(0,0,0,0.35);
+      cursor: pointer;
+    }
+    #play-overlay.hidden { display: none; }
+
+    #play-overlay .play-circle {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.2s;
+    }
+    #play-overlay .play-circle:hover { transform: scale(1.08); }
+
+    #play-overlay .play-icon {
+      width: 0; height: 0;
+      border-style: solid;
+      border-width: 16px 0 16px 28px;
+      border-color: transparent transparent transparent rgba(255,255,255,0.9);
+      margin-left: 4px;
+    }
+
+    #play-overlay .play-label {
+      font-size: 14px;
+      color: rgba(255,255,255,0.5);
+    }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed;
+      bottom: 80px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 4px;
+      z-index: 30;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+
+    /* ── Focus visible ── */
+    button:focus-visible, select:focus-visible, input[type="range"]:focus-visible {
+      outline: 2px solid rgba(255,255,255,0.3);
+      outline-offset: 2px;
+    }
+
+    /* ── Hidden file inputs ── */
+    .hidden-input { display: none; }
   </style>
 </head>
 <body>
   <canvas id="canvas"></canvas>
   <div id="status">Loading...</div>
+
+  <!-- Play overlay -->
+  <div id="play-overlay">
+    <div class="play-circle"><div class="play-icon"></div></div>
+    <span class="play-label">Click to play</span>
+  </div>
+
+  <!-- Top Bar -->
+  <div id="top-bar">
+    <select id="select-song" class="title-select" aria-label="Song" disabled><option value="">Song</option></select>
+    <button id="btn-upload-vmd" class="top-upload" title="Upload VMD folder" aria-label="Upload VMD folder"><span class="material-symbols-rounded">upload_file</span></button>
+    <span class="top-sep">X</span>
+    <select id="select-pmx" class="title-select" aria-label="Model" disabled></select>
+    <button id="btn-upload-pmx" class="top-upload" title="Upload PMX folder" aria-label="Upload PMX folder"><span class="material-symbols-rounded">upload_file</span></button>
+    <span id="loading-status"></span>
+  </div>
+
+  <!-- Bottom Player Bar -->
+  <div id="player-bar">
+    <div id="timeline">
+      <div id="tl-bar"><div id="tl-fill"></div></div>
+      <div id="tl-thumb"></div>
+    </div>
+    <div id="player-controls">
+      <button id="btn-prev" aria-label="Previous"><span class="material-symbols-rounded">skip_previous</span></button>
+      <button id="btn-playpause" aria-label="Play"><span class="material-symbols-rounded">play_arrow</span></button>
+      <button id="btn-next" aria-label="Next"><span class="material-symbols-rounded">skip_next</span></button>
+      <div id="volume-group">
+        <button id="btn-mute" aria-label="Unmute"><span class="material-symbols-rounded">volume_off</span></button>
+        <input id="volume" type="range" min="0" max="1" step="0.05" value="0.5" aria-label="Volume">
+      </div>
+      <span class="time-display"><span id="tl-current">0:00.00</span> / <span id="tl-total">0:00.00</span></span>
+    </div>
+  </div>
+
+  <!-- Hidden file inputs -->
+  <input id="input-vmd" class="hidden-input" type="file" webkitdirectory accept=".vmd,.mp3,.ogg,.m4a,.wav">
+  <input id="input-pmx" class="hidden-input" type="file" webkitdirectory accept=".pmx,.png,.jpg,.jpeg,.tga,.bmp,.spa,.sph">
+
+  <!-- Toast -->
+  <div id="toast"></div>
+
   <script type="module" src="/js/babylon-main.js"></script>
 </body>
 </html>

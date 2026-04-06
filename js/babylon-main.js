@@ -1,4 +1,4 @@
-// babylon-mmd core — Phase 1 minimal setup
+// babylon-mmd core — Phase 2 with UI integration
 import { Engine } from '@babylonjs/core/Engines/engine';
 import { Scene } from '@babylonjs/core/scene';
 import { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera';
@@ -20,14 +20,30 @@ import { MmdPhysics } from 'babylon-mmd/esm/Runtime/Physics/mmdPhysics';
 import { VmdLoader } from 'babylon-mmd/esm/Loader/vmdLoader';
 import { SdefInjector } from 'babylon-mmd/esm/Loader/sdefInjector';
 import { MmdStandardMaterialBuilder } from 'babylon-mmd/esm/Loader/mmdStandardMaterialBuilder';
-import { MmdMesh } from 'babylon-mmd/esm/Runtime/mmdMesh';
+import { StreamAudioPlayer } from 'babylon-mmd/esm/Runtime/Audio/streamAudioPlayer';
 
-// Side effect imports (required for animation binding)
+// Side effect imports
 import 'babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation';
 import 'babylon-mmd/esm/Loader/pmxLoader';
 
-const status = document.getElementById('status');
-const log = (msg) => { status.textContent = msg; console.log('[mmd]', msg); };
+import { BabylonUI } from './babylon-ui.js';
+
+// ── App state ──
+const app = {
+  engine: null,
+  scene: null,
+  camera: null,
+  mmdRuntime: null,
+  mmdModel: null,
+  audioPlayer: null,
+  vmdLoader: null,
+};
+
+const log = (msg) => {
+  const el = document.getElementById('status');
+  if (el) el.textContent = msg;
+  console.log('[mmd]', msg);
+};
 
 async function main() {
   const canvas = document.getElementById('canvas');
@@ -39,13 +55,15 @@ async function main() {
     stencil: true,
   });
   engine.setHardwareScalingLevel(1 / window.devicePixelRatio);
+  app.engine = engine;
 
   // Scene
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.102, 0.102, 0.102, 1);
   scene.ambientColor = new Color3(0.5, 0.5, 0.5);
+  app.scene = scene;
 
-  // Havok physics engine (required by MmdPhysics)
+  // Havok physics
   log('Initializing Havok physics...');
   const havokInstance = await HavokPhysics();
   const havokPlugin = new HavokPlugin(true, havokInstance);
@@ -61,6 +79,7 @@ async function main() {
   camera.maxZ = 300;
   camera.wheelPrecision = 10;
   camera.panningSensibility = 100;
+  app.camera = camera;
 
   // Lights
   const hemi = new HemisphericLight('hemi', new Vector3(0, 1, 0), scene);
@@ -79,94 +98,31 @@ async function main() {
   ground.receiveShadows = true;
 
   // MMD Runtime with physics
-  log('Initializing physics...');
+  log('Initializing MMD runtime...');
   const mmdRuntime = new MmdRuntime(scene, new MmdPhysics(scene));
   mmdRuntime.register(scene);
+  app.mmdRuntime = mmdRuntime;
+
+  // Audio player (integrated with MmdRuntime for sync)
+  const audioPlayer = new StreamAudioPlayer(scene);
+  audioPlayer.volume = 0.5;
+  audioPlayer.mute(); // Start muted — unmute on user interaction
+  app.audioPlayer = audioPlayer;
+
+  // VmdLoader
+  app.vmdLoader = new VmdLoader(scene);
 
   // Material builder
   const materialBuilder = new MmdStandardMaterialBuilder();
   materialBuilder.loadOutlineRenderingProperties = () => { /* skip outline for now */ };
 
-  // Load PMX
-  log('Loading PMX model...');
-
-  // Use first sample from manifest
-  let pmxPath;
-  try {
-    const res = await fetch('samples/pmx/manifest.json');
-    const manifest = await res.json();
-    const first = manifest.find(m => m.deployed !== false);
-    if (first) {
-      pmxPath = 'samples/pmx/' + first.path;
-      log(`Loading: ${first.name}...`);
-    }
-  } catch (e) {
-    console.warn('No PMX manifest, using default path');
-  }
-
-  if (!pmxPath) {
-    log('No PMX model found');
-    engine.runRenderLoop(() => scene.render());
-    return;
-  }
-
-  const pmxDir = pmxPath.substring(0, pmxPath.lastIndexOf('/') + 1);
-  const pmxFile = pmxPath.substring(pmxPath.lastIndexOf('/') + 1);
-
-  const result = await SceneLoader.ImportMeshAsync(
-    undefined,
-    pmxDir,
-    pmxFile,
-    scene,
-  );
-
-  const mmdMesh = result.meshes[0];
-  if (!mmdMesh) {
-    log('Failed to load mesh');
-    engine.runRenderLoop(() => scene.render());
-    return;
-  }
-
-  log('Creating MMD model...');
-  const mmdModel = mmdRuntime.createMmdModel(mmdMesh);
-
-  // Load VMD
-  log('Loading VMD animation...');
-  let vmdPath;
-  try {
-    const res = await fetch('samples/vmd/manifest.json');
-    const manifest = await res.json();
-    const first = manifest.find(v => v.deployed !== false);
-    if (first) {
-      vmdPath = 'samples/vmd/' + first.vmd;
-      log(`Loading VMD: ${first.name}...`);
-    }
-  } catch (e) {
-    console.warn('No VMD manifest');
-  }
-
-  if (vmdPath) {
-    const vmdLoader = new VmdLoader(scene);
-    const vmdAnimation = await vmdLoader.loadAsync('motion', vmdPath);
-
-    const animHandle = mmdModel.createRuntimeAnimation(vmdAnimation);
-    mmdModel.setRuntimeAnimation(animHandle);
-
-    mmdRuntime.playAnimation();
-    log('Playing! Physics ON — check cloth stability.');
-  } else {
-    log('No VMD found. Model loaded (T-pose).');
-  }
-
   // Render loop
-  engine.runRenderLoop(() => {
-    scene.render();
-  });
+  engine.runRenderLoop(() => scene.render());
+  window.addEventListener('resize', () => engine.resize());
 
-  // Resize
-  window.addEventListener('resize', () => {
-    engine.resize();
-  });
+  // Init UI — handles model/VMD loading, playback, timeline
+  const ui = new BabylonUI(app, { log, materialBuilder });
+  await ui.init();
 }
 
 main().catch((err) => {
