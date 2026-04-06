@@ -19,6 +19,6 @@ export default defineConfig({
   },
   assetsInclude: ['**/*.pmx', '**/*.pmd', '**/*.vmd', '**/*.vpd', '**/*.bpmx', '**/*.bvmd'],
   optimizeDeps: {
-    exclude: ['babylon-mmd'],
+    // babylon-mmd must be pre-bundled so shader side-effect imports resolve
   },
 });
