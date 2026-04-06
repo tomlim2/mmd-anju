@@ -26,6 +26,9 @@ import { PmxLoader } from 'babylon-mmd/esm/Loader/pmxLoader';
 // Side effect imports
 import 'babylon-mmd/esm/Runtime/Animation/mmdRuntimeModelAnimation';
 import 'babylon-mmd/esm/Loader/mmdOutlineRenderer';
+// Pre-register outline shaders in ShaderStore (avoid dynamic import race)
+import 'babylon-mmd/esm/Loader/Shaders/mmdOutline.vertex';
+import 'babylon-mmd/esm/Loader/Shaders/mmdOutline.fragment';
 
 import { BabylonUI } from './babylon-ui.js';
 
