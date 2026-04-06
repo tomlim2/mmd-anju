@@ -514,15 +514,7 @@ export class BabylonUI {
       return;
     }
 
-    // For now, load the first PMX from uploaded folder
-    // Create blob URLs for all files so textures can resolve
-    const blobUrls = new Map();
-    for (const f of files) {
-      blobUrls.set(f.name.toLowerCase(), URL.createObjectURL(f));
-    }
-
     const pmxFile = pmxFiles[0];
-    const pmxUrl = blobUrls.get(pmxFile.name.toLowerCase());
 
     this._setStatus('Loading uploaded model...');
     const { scene, mmdRuntime } = this._app;
@@ -537,7 +529,8 @@ export class BabylonUI {
     for (const m of oldMeshes) m.dispose();
 
     try {
-      const result = await SceneLoader.ImportMeshAsync(undefined, '', pmxUrl + '#.pmx', scene);
+      // Pass File object directly — PmLoader.loadFile accepts File
+      const result = await SceneLoader.ImportMeshAsync(undefined, '', pmxFile, scene);
       const mmdMesh = result.meshes[0];
       if (!mmdMesh) throw new Error('No mesh loaded');
 
@@ -568,12 +561,6 @@ export class BabylonUI {
       this._setStatus('Load failed');
       setTimeout(() => this._setStatus(''), 3000);
     }
-
-    // Cleanup blob URLs (textures already loaded)
-    // Note: we should keep them alive until meshes are created, delay cleanup
-    setTimeout(() => {
-      for (const url of blobUrls.values()) URL.revokeObjectURL(url);
-    }, 5000);
   }
 
   // ── Keyboard ──
