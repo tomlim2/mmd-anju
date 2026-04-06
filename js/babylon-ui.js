@@ -19,6 +19,10 @@ export class BabylonUI {
     // Timeline state
     this._tlDragging = false;
     this._tlWasPlaying = false;
+    this._autoNextLock = false;
+
+    // Current VMD tracking (for reapply on PMX switch)
+    this._currentVmdSource = null; // { type: 'sample', song } | { type: 'upload', index }
 
     // Upload state
     this._uploadedVmds = [];
@@ -85,10 +89,17 @@ export class BabylonUI {
     }
     sel.disabled = this._pmxManifest.length <= 1;
 
-    sel.addEventListener('change', () => {
+    sel.addEventListener('change', async () => {
       if (!sel.value || sel.value.startsWith('upload:')) return;
       const entry = JSON.parse(sel.value);
-      this._loadPmx('samples/pmx/' + entry.path);
+      const wasPlaying = this._playing;
+      await this._loadPmx('samples/pmx/' + entry.path);
+      await this._reapplyCurrentVmd();
+      if (wasPlaying) {
+        this._app.mmdRuntime.playAnimation();
+        this._playing = true;
+        this._updatePlayPauseBtn(true);
+      }
     });
   }
 
@@ -104,7 +115,14 @@ export class BabylonUI {
     sel.disabled = this._vmdManifest.length <= 1;
 
     sel.addEventListener('change', async () => {
-      if (!sel.value || sel.value.startsWith('upload:')) return;
+      if (!sel.value) return;
+      // Handle uploaded VMD selection
+      if (sel.value.startsWith('upload:')) {
+        const name = sel.value.slice(7);
+        const idx = this._uploadedVmds.findIndex(v => v.name === name);
+        if (idx >= 0) await this._loadUploadedVmd(idx);
+        return;
+      }
       const song = this._vmdManifest.find(s => s.vmd === sel.value);
       if (!song) return;
       this._sampleIndex = this._vmdManifest.indexOf(song);
@@ -200,6 +218,7 @@ export class BabylonUI {
       }
     }
 
+    this._currentVmdSource = { type: 'sample', song };
     this._setStatus('');
   }
 
@@ -245,7 +264,7 @@ export class BabylonUI {
   }
 
   _togglePlayback() {
-    const { mmdRuntime } = this._app;
+    const { mmdRuntime, audioPlayer } = this._app;
     // Dismiss overlay if visible
     const overlay = this._els['play-overlay'];
     if (!overlay.classList.contains('hidden')) {
@@ -256,6 +275,12 @@ export class BabylonUI {
       mmdRuntime.pauseAnimation();
       this._playing = false;
     } else {
+      // Unmute on first play (same as overlay click)
+      if (this._muted) {
+        audioPlayer.unmute();
+        this._muted = false;
+        this._updateMuteBtn();
+      }
       mmdRuntime.playAnimation();
       this._playing = true;
     }
@@ -347,9 +372,10 @@ export class BabylonUI {
         this._els['tl-current'].textContent = this._fmtTime(currentSec);
         this._els['tl-total'].textContent = this._fmtTime(durationSec);
 
-        // End detection
-        if (this._playing && durationSec > 0 && currentSec >= durationSec - 0.1) {
-          this._nextTrack();
+        // End detection (guarded to prevent rapid re-trigger)
+        if (this._playing && !this._autoNextLock && durationSec > 0 && currentSec >= durationSec - 0.1) {
+          this._autoNextLock = true;
+          this._nextTrack().finally(() => { this._autoNextLock = false; });
         }
       }
       requestAnimationFrame(update);
@@ -464,8 +490,19 @@ export class BabylonUI {
       await mmdRuntime.setAudioPlayer(null);
     }
 
+    this._currentVmdSource = { type: 'upload', index };
     this._setStatus('');
     if (this._playing) mmdRuntime.playAnimation();
+  }
+
+  async _reapplyCurrentVmd() {
+    const src = this._currentVmdSource;
+    if (!src || !this._app.mmdModel) return;
+    if (src.type === 'sample') {
+      await this._loadSampleVmd(src.song);
+    } else if (src.type === 'upload') {
+      await this._loadUploadedVmd(src.index);
+    }
   }
 
   async _handlePmxUpload(fileList) {
@@ -489,6 +526,7 @@ export class BabylonUI {
 
     this._setStatus('Loading uploaded model...');
     const { scene, mmdRuntime } = this._app;
+    const wasPlaying = this._playing;
 
     // Destroy existing model
     if (this._app.mmdModel) {
@@ -517,6 +555,14 @@ export class BabylonUI {
 
       this._els['btn-upload-pmx'].classList.add('uploaded');
       this._setStatus('');
+
+      // Reapply current VMD on the new model
+      await this._reapplyCurrentVmd();
+      if (wasPlaying) {
+        this._app.mmdRuntime.playAnimation();
+        this._playing = true;
+        this._updatePlayPauseBtn(true);
+      }
     } catch (err) {
       console.error('PMX upload error:', err);
       this._setStatus('Load failed');
