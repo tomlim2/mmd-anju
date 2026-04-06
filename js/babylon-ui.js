@@ -1,6 +1,7 @@
 // babylon-ui.js — UI controller for Babylon.js MMD player
 import { SceneLoader } from '@babylonjs/core/Loading/sceneLoader';
 import { VmdLoader } from 'babylon-mmd/esm/Loader/vmdLoader';
+import { hasHumanoidBones } from './pmx-check.js';
 
 const FPS = 30;
 
@@ -521,8 +522,20 @@ export class BabylonUI {
       return;
     }
 
-    // Store all uploaded PMX files (with their sibling textures)
-    this._uploadedPmxs = pmxFiles.map(f => ({
+    // Filter: only humanoid PMX files
+    const valid = [];
+    for (const f of pmxFiles) {
+      const buf = await f.arrayBuffer();
+      if (hasHumanoidBones(buf)) {
+        valid.push(new File([buf], f.name));
+      }
+    }
+    if (!valid.length) {
+      this._showToast('No humanoid PMX found');
+      return;
+    }
+
+    this._uploadedPmxs = valid.map(f => ({
       name: f.name.replace(/\.pmx$/i, ''),
       file: f,
     }));
