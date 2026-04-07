@@ -11,6 +11,7 @@ import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { Color3 } from '@babylonjs/core/Maths/math.color';
 import { Plane } from '@babylonjs/core/Maths/math.plane';
 import { MirrorTexture } from '@babylonjs/core/Materials/Textures/mirrorTexture';
+import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline';
 import '@babylonjs/core/Rendering/depthRendererSceneComponent';
 import '@babylonjs/core/Physics/joinedPhysicsEngineComponent';
 import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin';
@@ -135,6 +136,22 @@ async function main() {
       loader.materialBuilder = materialBuilder;
     }
   });
+
+  // Post-processing pipeline
+  const pipeline = new DefaultRenderingPipeline('pp', true, scene, [camera]);
+  pipeline.bloomEnabled = true;
+  pipeline.bloomThreshold = 0.2;
+  pipeline.bloomWeight = 0.05;
+  pipeline.bloomKernel = 64;
+  pipeline.bloomScale = 0.5;
+  pipeline.chromaticAberrationEnabled = false;
+  pipeline.grainEnabled = false;
+  pipeline.imageProcessing.toneMappingEnabled = true;
+  pipeline.imageProcessing.toneMappingType = 1; // ACES
+  pipeline.imageProcessing.vignetteEnabled = false;
+  pipeline.imageProcessing.vignetteWeight = 2;
+  pipeline.imageProcessing.vignetteStretch = 0;
+  app.pipeline = pipeline;
 
   // Render loop
   engine.runRenderLoop(() => scene.render());
