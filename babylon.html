@@ -291,6 +291,92 @@
     }
     #toast.show { opacity: 1; }
 
+    /* ── FX Panel ── */
+    #fx-panel {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      width: 200px;
+      z-index: 20;
+      font-size: 11px;
+      user-select: none;
+    }
+    @media (pointer: coarse), (max-width: 768px) {
+      #fx-panel { display: none; }
+    }
+    .fx-tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 8px;
+    }
+    .fx-tab {
+      flex: 1;
+      padding: 4px 0;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: center;
+      color: var(--text-dim);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+    .fx-tab:hover { color: var(--text); }
+    .fx-tab.active { color: var(--text); background: var(--surface); border-color: var(--text-dim); }
+    .fx-tab-content { display: none; }
+    .fx-tab-content.active { display: block; max-height: 50vh; overflow-y: auto; }
+    .fx-tab-content::-webkit-scrollbar { width: 3px; }
+    .fx-tab-content::-webkit-scrollbar-track { background: transparent; }
+    .fx-tab-content::-webkit-scrollbar-thumb { background: var(--thumb); border-radius: 2px; }
+    .fx-section { margin-bottom: 8px; }
+    .fx-section-title {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .fx-chk { display: flex; align-items: center; }
+
+    /* Slider component */
+    .slider { display: flex; align-items: center; gap: 6px; height: 24px; }
+    .slider-label { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; min-width: 18px; flex-shrink: 0; }
+    .slider-track { -webkit-appearance: none; appearance: none; width: 72px; height: 3px; background: var(--track); border-radius: 2px; outline: none; cursor: pointer; }
+    .slider-track::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--thumb); border: none; cursor: pointer; transition: background 0.12s; }
+    .slider-track::-webkit-slider-thumb:hover { background: var(--thumb-hover); }
+    .slider-track::-moz-range-thumb { width: 10px; height: 10px; border-radius: 50%; background: var(--thumb); border: none; cursor: pointer; }
+    .slider-track::-moz-range-track { height: 3px; background: var(--track); border-radius: 2px; border: none; }
+    .slider-val { color: var(--text-dim); font-size: 10px; font-family: inherit; font-variant-numeric: tabular-nums; width: 36px; text-align: right; flex-shrink: 0; background: transparent; border: 1px solid transparent; border-radius: 3px; padding: 1px 2px; outline: none; -moz-appearance: textfield; }
+    .slider-val::-webkit-inner-spin-button, .slider-val::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    .slider-val:hover { border-color: var(--border); }
+    .slider-val:focus-visible { border-color: rgba(255,255,255,0.2); color: var(--text); }
+
+    /* Custom checkbox */
+    input[type="checkbox"] {
+      -webkit-appearance: none; appearance: none;
+      width: 12px; height: 12px;
+      border: 1.5px solid #666; border-radius: 2px;
+      background: transparent; cursor: pointer;
+      position: relative; flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    input[type="checkbox"]:checked { background: #888; border-color: #888; }
+    input[type="checkbox"]:checked::after {
+      content: ''; position: absolute;
+      left: 2.5px; top: 0.5px; width: 4px; height: 7px;
+      border: solid #1a1a1a; border-width: 0 1.5px 1.5px 0;
+      transform: rotate(45deg);
+    }
+    input[type="checkbox"]:hover { border-color: #aaa; }
+    input[type="checkbox"]:checked:hover { background: #aaa; border-color: #aaa; }
+
     /* ── Focus visible ── */
     button:focus-visible, select:focus-visible, input[type="range"]:focus-visible {
       outline: 2px solid rgba(255,255,255,0.3);
@@ -319,6 +405,49 @@
     <select id="select-pmx" class="title-select" aria-label="Model" disabled></select>
     <button id="btn-upload-pmx" class="top-upload" title="Upload PMX folder" aria-label="Upload PMX folder"><span class="material-symbols-rounded">upload_file</span></button>
     <span id="loading-status"></span>
+  </div>
+
+  <!-- FX Panel -->
+  <div id="fx-panel">
+    <div class="fx-tabs">
+      <button class="fx-tab active" data-tab="pp">PP</button>
+      <button class="fx-tab" data-tab="scene">Scene</button>
+    </div>
+
+    <div class="fx-tab-content active" id="tab-pp">
+      <div class="fx-section" id="fx-bloom">
+        <div class="fx-section-title">Bloom <label class="fx-chk"><input type="checkbox" id="chk-bloom" checked></label></div>
+        <div class="slider"><span class="slider-label">Weight</span><input class="slider-track" type="range" id="rng-bloom-weight" min="0" max="2" step="0.05" value="0.05"><input type="number" class="slider-val" id="val-bloom-weight" value="0.05" min="0" max="2" step="0.05"></div>
+        <div class="slider"><span class="slider-label">Thresh</span><input class="slider-track" type="range" id="rng-bloom-threshold" min="0" max="1" step="0.05" value="0.2"><input type="number" class="slider-val" id="val-bloom-threshold" value="0.20" min="0" max="1" step="0.05"></div>
+      </div>
+      <div class="fx-section" id="fx-vignette">
+        <div class="fx-section-title">Vignette <label class="fx-chk"><input type="checkbox" id="chk-vignette"></label></div>
+        <div class="slider"><span class="slider-label">Weight</span><input class="slider-track" type="range" id="rng-vignette-weight" min="0" max="6" step="0.1" value="2"><input type="number" class="slider-val" id="val-vignette-weight" value="2.0" min="0" max="6" step="0.1"></div>
+      </div>
+      <div class="fx-section" id="fx-exposure">
+        <div class="fx-section-title">Exposure</div>
+        <div class="slider"><span class="slider-label">EV</span><input class="slider-track" type="range" id="rng-exposure" min="0.5" max="3" step="0.05" value="1"><input type="number" class="slider-val" id="val-exposure" value="1.00" min="0.5" max="3" step="0.05"></div>
+      </div>
+      <div class="fx-section" id="fx-ca">
+        <div class="fx-section-title">CA <label class="fx-chk"><input type="checkbox" id="chk-ca"></label></div>
+        <div class="slider"><span class="slider-label">Amount</span><input class="slider-track" type="range" id="rng-ca" min="0" max="128" step="1" value="0"><input type="number" class="slider-val" id="val-ca" value="0" min="0" max="128" step="1"></div>
+      </div>
+      <div class="fx-section" id="fx-grain">
+        <div class="fx-section-title">Grain <label class="fx-chk"><input type="checkbox" id="chk-grain"></label></div>
+        <div class="slider"><span class="slider-label">Amount</span><input class="slider-track" type="range" id="rng-grain" min="0" max="50" step="1" value="0"><input type="number" class="slider-val" id="val-grain" value="0" min="0" max="50" step="1"></div>
+      </div>
+    </div>
+
+    <div class="fx-tab-content" id="tab-scene">
+      <div class="fx-section" id="fx-mirror">
+        <div class="fx-section-title">Mirror <label class="fx-chk"><input type="checkbox" id="chk-mirror" checked></label></div>
+        <div class="slider"><span class="slider-label">Level</span><input class="slider-track" type="range" id="rng-mirror-level" min="0" max="100" step="1" value="40"><input type="number" class="slider-val" id="val-mirror-level" value="40" min="0" max="100" step="1"></div>
+      </div>
+      <div class="fx-section" id="fx-fov">
+        <div class="fx-section-title">Camera</div>
+        <div class="slider"><span class="slider-label">FOV</span><input class="slider-track" type="range" id="rng-fov" min="10" max="60" step="1" value="40"><input type="number" class="slider-val" id="val-fov" value="40" min="10" max="60" step="1"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Bottom Player Bar -->

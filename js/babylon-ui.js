@@ -41,6 +41,7 @@ export class BabylonUI {
     this._initVolume();
     this._initUpload();
     this._initKeyboard();
+    this._initFxPanel();
     this._startTimelineLoop();
 
     await this._loadManifests();
@@ -651,6 +652,112 @@ export class BabylonUI {
   }
 
   // ── Utils ──
+
+  // ── FX Panel ──
+
+  _initFxPanel() {
+    this._initFxTabs();
+    this._initPpControls();
+    this._initSceneControls();
+  }
+
+  _initFxTabs() {
+    for (const tab of document.querySelectorAll('.fx-tab[data-tab]')) {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.fx-tab[data-tab]').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.fx-tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+      });
+    }
+  }
+
+  _wireSlider(rngId, valId, setter) {
+    const rng = document.getElementById(rngId);
+    const val = document.getElementById(valId);
+    if (!rng || !val) return;
+    rng.addEventListener('input', () => {
+      val.value = rng.value;
+      setter(parseFloat(rng.value));
+    });
+    val.addEventListener('change', () => {
+      let v = parseFloat(val.value) || parseFloat(rng.min);
+      v = Math.max(parseFloat(rng.min), Math.min(parseFloat(rng.max), v));
+      val.value = v; rng.value = v;
+      setter(v);
+    });
+  }
+
+  _wireCheckbox(chkId, setter) {
+    const chk = document.getElementById(chkId);
+    if (!chk) return;
+    chk.addEventListener('change', () => setter(chk.checked));
+  }
+
+  _initPpControls() {
+    const pp = this._app.pipeline;
+    if (!pp) return;
+
+    // Bloom
+    this._wireCheckbox('chk-bloom', (v) => { pp.bloomEnabled = v; });
+    this._wireSlider('rng-bloom-weight', 'val-bloom-weight', (v) => { pp.bloomWeight = v; });
+    this._wireSlider('rng-bloom-threshold', 'val-bloom-threshold', (v) => { pp.bloomThreshold = v; });
+
+    // Vignette
+    this._wireCheckbox('chk-vignette', (v) => {
+      pp.imageProcessing.vignetteEnabled = v;
+    });
+    this._wireSlider('rng-vignette-weight', 'val-vignette-weight', (v) => {
+      pp.imageProcessing.vignetteWeight = v;
+    });
+
+    // Exposure
+    this._wireSlider('rng-exposure', 'val-exposure', (v) => {
+      pp.imageProcessing.exposure = v;
+    });
+
+    // Chromatic Aberration
+    this._wireCheckbox('chk-ca', (v) => { pp.chromaticAberrationEnabled = v; });
+    this._wireSlider('rng-ca', 'val-ca', (v) => {
+      pp.chromaticAberration.aberrationAmount = v;
+    });
+
+    // Grain
+    this._wireCheckbox('chk-grain', (v) => { pp.grainEnabled = v; });
+    this._wireSlider('rng-grain', 'val-grain', (v) => {
+      pp.grain.intensity = v;
+    });
+  }
+
+  _initSceneControls() {
+    const { mirror, camera } = this._app;
+
+    // Mirror
+    if (mirror) {
+      this._wireCheckbox('chk-mirror', (v) => {
+        const ground = this._app.ground;
+        if (!ground) return;
+        if (v) {
+          ground.material.reflectionTexture = mirror;
+        } else {
+          ground.material.reflectionTexture = null;
+        }
+      });
+      this._wireSlider('rng-mirror-level', 'val-mirror-level', (v) => {
+        mirror.level = v / 100;
+      });
+    }
+
+    // FOV
+    if (camera) {
+      this._wireSlider('rng-fov', 'val-fov', (v) => {
+        camera.fov = v * Math.PI / 180;
+      });
+      // Set initial FOV from slider
+      const initFov = parseFloat(document.getElementById('rng-fov')?.value || 40);
+      camera.fov = initFov * Math.PI / 180;
+    }
+  }
 
   _updateMirrorRenderList(meshes) {
     const mirror = this._app.mirror;
