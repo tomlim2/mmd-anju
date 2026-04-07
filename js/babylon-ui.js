@@ -192,6 +192,7 @@ export class BabylonUI {
     }
 
     this._app.mmdModel = mmdRuntime.createMmdModel(mmdMesh);
+    this._updateMirrorRenderList(result.meshes);
     this._setStatus('');
   }
 
@@ -583,6 +584,7 @@ export class BabylonUI {
       }
 
       this._app.mmdModel = mmdRuntime.createMmdModel(mmdMesh);
+      this._updateMirrorRenderList(result.meshes);
       this._setStatus('');
 
       // Reapply current VMD on the new model
@@ -649,6 +651,15 @@ export class BabylonUI {
   }
 
   // ── Utils ──
+
+  _updateMirrorRenderList(meshes) {
+    const mirror = this._app.mirror;
+    if (!mirror) return;
+    mirror.renderList.length = 0;
+    for (const m of meshes) {
+      if (m.metadata?.isMmdModel) mirror.renderList.push(m);
+    }
+  }
 
   _setStatus(msg) {
     this._els['loading-status'].textContent = msg;

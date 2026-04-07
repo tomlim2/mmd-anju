@@ -9,6 +9,8 @@ import { SceneLoader } from '@babylonjs/core/Loading/sceneLoader';
 import { MeshBuilder } from '@babylonjs/core/Meshes/meshBuilder';
 import { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial';
 import { Color3 } from '@babylonjs/core/Maths/math.color';
+import { Plane } from '@babylonjs/core/Maths/math.plane';
+import { MirrorTexture } from '@babylonjs/core/Materials/Textures/mirrorTexture';
 import '@babylonjs/core/Rendering/depthRendererSceneComponent';
 import '@babylonjs/core/Physics/joinedPhysicsEngineComponent';
 import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin';
@@ -93,13 +95,23 @@ async function main() {
   const dir = new DirectionalLight('dir', new Vector3(-0.5, -1.5, 1), scene);
   dir.intensity = 0.8;
 
-  // Ground
+  // Ground with mirror reflection
   const ground = MeshBuilder.CreateGround('ground', { width: 60, height: 60 }, scene);
   const groundMat = new StandardMaterial('groundMat', scene);
   groundMat.diffuseColor = new Color3(0.15, 0.15, 0.15);
   groundMat.specularColor = new Color3(0, 0, 0);
+
+  // Mirror reflection — renders scene from below, blended at 40% opacity
+  const mirror = new MirrorTexture('mirror', 1024, scene, true);
+  mirror.mirrorPlane = new Plane(0, -1, 0, 0);
+  mirror.level = 0.4;
+  mirror.adaptiveBlurKernel = 16;
+  groundMat.reflectionTexture = mirror;
+
   ground.material = groundMat;
   ground.receiveShadows = true;
+  app.ground = ground;
+  app.mirror = mirror;
 
   // MMD Runtime with physics
   log('Initializing MMD runtime...');
