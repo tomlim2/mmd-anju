@@ -12,6 +12,8 @@ import { Color3 } from '@babylonjs/core/Maths/math.color';
 import { Plane } from '@babylonjs/core/Maths/math.plane';
 import { MirrorTexture } from '@babylonjs/core/Materials/Textures/mirrorTexture';
 import { DefaultRenderingPipeline } from '@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline';
+// TGA loader — force include to prevent tree-shaking of dynamic _getImageDataXXbits
+import '@babylonjs/core/Materials/Textures/Loaders/tgaTextureLoader';
 import '@babylonjs/core/Rendering/depthRendererSceneComponent';
 import '@babylonjs/core/Physics/joinedPhysicsEngineComponent';
 import { HavokPlugin } from '@babylonjs/core/Physics/v2/Plugins/havokPlugin';
