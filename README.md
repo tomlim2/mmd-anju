@@ -12,7 +12,7 @@ Loads PMX models and VMD motions with audio sync, particle effects, and real-tim
 - Particle effects: Rising Light, Falling Light, Foot Ripple, Ground Mirror
 - FX parameter controller with copy/paste JSON presets
 - ShiftJIS mojibake texture fallback
-- WebGPU capability checks with a responsive browser guidance card, retry, and shareable player URL
+- WebGPU capability checks with a responsive browser guidance card and shareable player URL
 
 ## UI
 

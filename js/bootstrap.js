@@ -24,7 +24,6 @@
     title.focus();
   }
 
-  document.getElementById('compat-retry').addEventListener('click', () => location.reload());
   document.getElementById('compat-copy').addEventListener('click', async () => {
     const status = document.getElementById('compat-copy-status');
     status.hidden = false;

@@ -42,22 +42,19 @@ function bootstrap({ protocol = 'https:', copy = async () => {} } = {}) {
     return elements.get(id);
   };
   const background = { tagName: 'DIV', setAttribute(name) { if (name === 'inert') this.inert = true; } };
-  let reloads = 0;
   vm.runInNewContext(readFileSync(new URL('../js/bootstrap.js', import.meta.url), 'utf8'), {
     document: { getElementById: get, body: { children: [get('compat-modal'), background] } },
     navigator: { clipboard: { writeText: copy } }, window: { isSecureContext: true },
-    location: { protocol, reload() { reloads++; } }, console,
+    location: { protocol }, console,
   });
-  return { get, background, reloads: () => reloads };
+  return { get, background };
 }
 
-test('unsupported screen disables background, focuses card, and retries', () => {
+test('unsupported screen disables background and focuses card', () => {
   const page = bootstrap();
   assert.equal(page.get('compat-modal').hidden, false);
   assert.equal(page.get('compat-title').focused, true);
   assert.equal(page.background.inert, true);
-  page.get('compat-retry').listeners.click();
-  assert.equal(page.reloads(), 1);
 });
 
 test('file preview explains how to open the hosted player', () => {
