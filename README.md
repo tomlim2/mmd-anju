@@ -4,6 +4,10 @@ Browser-based MikuMikuDance player built on Three.js WebGPU.
 
 Loads PMX models and VMD motions with audio sync, particle effects, and real-time IK.
 
+## Development guide
+
+Start with [MAP.md](MAP.md) for code locations and [DEVELOPMENT.md](DEVELOPMENT.md) for shared UI, validation, and deployment rules. Deploy only when explicitly requested.
+
 ## Features
 
 - PMX model loading (file path or ZIP upload)

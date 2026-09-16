@@ -588,40 +588,40 @@
       to   { opacity: 0.5; }
     }
 
-    /* Unsupported environments and startup failures */
+    /* Compatibility guidance uses the player's panel and control tokens. */
     #compat-modal[hidden] { display: none; }
     #compat-browsers[hidden], #play-overlay[hidden] { display: none; }
     body > [inert] { display: none !important; }
     #compat-modal {
       position: fixed; inset: 0; z-index: 10000;
-      display: grid; place-items: center; padding: 24px;
-      overflow-y: auto; background: #15171c;
-      background-image: radial-gradient(ellipse at 50% 30%, #25344b 0%, transparent 65%);
+      display: grid; place-items: center; padding: 20px;
+      overflow-y: auto; background: var(--bg);
     }
     #compat-modal .compat-box {
-      width: 100%; max-width: 460px; padding: 36px;
-      border: 1px solid #ffffff16; border-radius: 20px;
-      background: #20242c; box-shadow: 0 24px 80px #0005;
+      width: 100%; max-width: 400px; padding: 24px;
+      border: 1px solid var(--border); border-radius: var(--radius-sm);
+      background: var(--panel);
       text-align: left; word-break: keep-all; overflow-wrap: anywhere;
     }
-    .compat-icon { width: 52px; height: 52px; padding: 12px; border-radius: 14px; background: #5b9bd51a; color: #9dcfff; margin-bottom: 24px; }
-    .compat-brand { color: #aebdce; font-size: 11px; letter-spacing: .16em; margin-bottom: 10px; }
-    #compat-modal h2 { color: #fff; font-size: 24px; line-height: 1.4; font-weight: 600; margin-bottom: 14px; outline: none; }
-    #compat-modal p { color: #bfc5cf; font-size: 14px; line-height: 1.8; }
-    .compat-browsers { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0; }
-    .compat-browsers span { padding: 8px 12px; border: 1px solid #ffffff18; border-radius: 8px; color: #e3e9f2; font-size: 13px; }
-    #compat-modal .compat-hint { font-size: 12px; color: #a4adba; }
-    .compat-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
-    .compat-actions button { flex: 1; min-height: 44px; padding: 10px 14px; border: 1px solid #ffffff28; border-radius: 9px; color: #e8edf5; background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
-    .compat-actions #compat-copy { background: #b5d8ff; border-color: #b5d8ff; color: #182638; font-weight: 600; }
-    .compat-actions button:focus-visible, #compat-modal a:focus-visible { outline: 2px solid #b5d8ff; outline-offset: 4px; }
-    #compat-modal .compat-link { display: inline-block; margin-top: 18px; color: #b5d8ff; font-size: 12px; text-underline-offset: 4px; }
+    .compat-icon { display: block; width: 28px; height: 28px; color: var(--text-dim); margin-bottom: 16px; }
+    .compat-brand { color: var(--text-dim); font-size: var(--font-xs); letter-spacing: .4px; margin-bottom: 8px; }
+    #compat-modal h2 { color: var(--text-bright); font-size: 18px; line-height: 1.5; font-weight: 500; margin-bottom: 12px; outline: none; }
+    #compat-modal p { color: var(--text); font-size: 13px; line-height: 1.7; }
+    .compat-browsers { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+    .compat-browsers span { padding: 5px 8px; border: 1px solid var(--track); border-radius: var(--radius-sm); color: var(--text); font-size: 11px; }
+    #compat-modal .compat-hint { font-size: 11px; color: var(--text-dim); }
+    .compat-actions { display: flex; gap: 8px; margin-top: 20px; }
+    .compat-actions button { flex: 1; min-height: 36px; padding: 8px 12px; border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-sm); color: var(--text); background: var(--surface); font: inherit; font-size: 12px; cursor: pointer; transition: color .15s, border-color .15s, background .15s; }
+    .compat-actions button:hover { color: var(--text-bright); border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.06); }
+    .compat-actions button:focus-visible, #compat-modal a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+    #compat-modal .compat-link { display: inline-block; margin-top: 12px; color: var(--text-dim); font-size: 11px; text-underline-offset: 3px; }
+    #compat-modal .compat-link:hover { color: var(--text-bright); }
     #compat-copy-status { margin-top: 12px; }
-    #compat-url { width: 100%; margin-top: 12px; padding: 10px; border: 1px solid #ffffff28; border-radius: 6px; color: #e8edf5; background: #15171c; font-size: 12px; }
+    #compat-url { width: 100%; margin-top: 12px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); background: var(--bg); font: inherit; font-size: 11px; }
     @media (max-width: 480px) {
-      #compat-modal { padding: 18px; }
-      #compat-modal .compat-box { padding: 26px 22px; }
-      #compat-modal h2 { font-size: 22px; }
+      #compat-modal { padding: 16px; }
+      #compat-modal .compat-box { padding: 20px; }
+      .compat-actions button { min-height: 44px; }
     }
 
     /* --- Slider Component (from matcap-painter) --- */
