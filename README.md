@@ -12,7 +12,7 @@ Loads PMX models and VMD motions with audio sync, particle effects, and real-tim
 - Particle effects: Rising Light, Falling Light, Foot Ripple, Ground Mirror
 - FX parameter controller with copy/paste JSON presets
 - ShiftJIS mojibake texture fallback
-- Mobile compatibility detection (WebGPU required)
+- WebGPU capability checks with a responsive browser guidance card, retry, and shareable player URL
 
 ## UI
 
@@ -80,6 +80,7 @@ Hosted at https://tomlim2.github.io/mmd-anju/ using GitHub Pages. No bundler; ES
 
 ```bash
 # Validate and preview the actual deployment bundle (Python 3.10+, Node.js, Git)
+node --test tests/*.test.mjs
 python3 scripts/build_site.py
 python3 -m http.server 3002 --directory _site
 

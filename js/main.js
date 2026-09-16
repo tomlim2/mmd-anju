@@ -8,8 +8,15 @@ import { FallingLightEffect } from './effects/falling-light.js';
 import { FootRippleEffect } from './effects/foot-ripple.js';
 import { GroundReflectEffect } from './effects/ground-reflect.js';
 const canvas = document.getElementById('canvas');
-const mmdScene = new MMDScene(canvas);
-await mmdScene.init();
+let mmdScene;
+try {
+  mmdScene = new MMDScene(canvas);
+  await mmdScene.init();
+} catch (cause) {
+  const error = new Error('The GPU renderer could not start.', { cause });
+  error.name = 'WebGPUInitializationError';
+  throw error;
+}
 
 const loader = new MMDModelLoader(mmdScene);
 const animation = new MMDAnimation(mmdScene);

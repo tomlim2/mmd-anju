@@ -25,7 +25,9 @@ jobs:
         run: |
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo 'Use vMAJOR.MINOR.PATCH'; exit 1; }
           git merge-base --is-ancestor HEAD origin/main
-      - name: Build and validate public site
+      - name: Test player startup and compatibility guidance
+        run: node --test tests/*.test.mjs
+      - name: Stage public files
         run: python3 scripts/build_site.py
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4

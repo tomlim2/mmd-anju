@@ -588,28 +588,41 @@
       to   { opacity: 0.5; }
     }
 
-    /* Compatibility modal */
+    /* Unsupported environments and startup failures */
+    #compat-modal[hidden] { display: none; }
+    #compat-browsers[hidden], #play-overlay[hidden] { display: none; }
+    body > [inert] { display: none !important; }
     #compat-modal {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      background: rgba(0,0,0,0.85);
+      position: fixed; inset: 0; z-index: 10000;
+      display: grid; place-items: center; padding: 24px;
+      overflow-y: auto; background: #15171c;
+      background-image: radial-gradient(ellipse at 50% 30%, #25344b 0%, transparent 65%);
     }
     #compat-modal .compat-box {
-      background: var(--surface);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 2rem 2.5rem;
-      max-width: 400px;
-      text-align: center;
+      width: 100%; max-width: 460px; padding: 36px;
+      border: 1px solid #ffffff16; border-radius: 20px;
+      background: #20242c; box-shadow: 0 24px 80px #0005;
+      text-align: left; word-break: keep-all; overflow-wrap: anywhere;
     }
-    #compat-modal h2 { margin-bottom: 0.75rem; font-weight: 500; font-size: 18px; }
-    #compat-modal p { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin-bottom: 0.5rem; }
-    #compat-modal .compat-list { color: var(--text-dim); font-size: 13px; margin: 1rem 0; line-height: 1.8; }
-    #compat-modal .compat-list span { color: var(--text-bright, #e0e0e0); }
+    .compat-icon { width: 52px; height: 52px; padding: 12px; border-radius: 14px; background: #5b9bd51a; color: #9dcfff; margin-bottom: 24px; }
+    .compat-brand { color: #aebdce; font-size: 11px; letter-spacing: .16em; margin-bottom: 10px; }
+    #compat-modal h2 { color: #fff; font-size: 24px; line-height: 1.4; font-weight: 600; margin-bottom: 14px; outline: none; }
+    #compat-modal p { color: #bfc5cf; font-size: 14px; line-height: 1.8; }
+    .compat-browsers { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0; }
+    .compat-browsers span { padding: 8px 12px; border: 1px solid #ffffff18; border-radius: 8px; color: #e3e9f2; font-size: 13px; }
+    #compat-modal .compat-hint { font-size: 12px; color: #a4adba; }
+    .compat-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+    .compat-actions button { flex: 1; min-height: 44px; padding: 10px 14px; border: 1px solid #ffffff28; border-radius: 9px; color: #e8edf5; background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
+    .compat-actions #compat-copy { background: #b5d8ff; border-color: #b5d8ff; color: #182638; font-weight: 600; }
+    .compat-actions button:focus-visible, #compat-modal a:focus-visible { outline: 2px solid #b5d8ff; outline-offset: 4px; }
+    #compat-modal .compat-link { display: inline-block; margin-top: 18px; color: #b5d8ff; font-size: 12px; text-underline-offset: 4px; }
+    #compat-copy-status { margin-top: 12px; }
+    #compat-url { width: 100%; margin-top: 12px; padding: 10px; border: 1px solid #ffffff28; border-radius: 6px; color: #e8edf5; background: #15171c; font-size: 12px; }
+    @media (max-width: 480px) {
+      #compat-modal { padding: 18px; }
+      #compat-modal .compat-box { padding: 26px 22px; }
+      #compat-modal h2 { font-size: 22px; }
+    }
 
     /* --- Slider Component (from matcap-painter) --- */
     .slider { display: flex; align-items: center; gap: 6px; height: 24px; }
@@ -1008,40 +1021,21 @@
     </div>
   </div>
 
-  <script>
-    (function() {
-      if (!navigator.gpu) {
-        const modal = document.createElement('div');
-        modal.id = 'compat-modal';
-
-        const isTouch = matchMedia('(pointer: coarse)').matches;
-        const ua = navigator.userAgent;
-        let browser = 'this browser';
-        if (/Firefox/i.test(ua)) browser = 'Firefox';
-        else if (/SamsungBrowser/i.test(ua)) browser = 'Samsung Internet';
-        else if (/Edg/i.test(ua)) browser = 'Edge';
-        else if (/Chrome/i.test(ua)) browser = isTouch ? 'Chrome (Mobile)' : 'Chrome';
-        else if (/Safari/i.test(ua)) browser = isTouch ? 'Safari (iOS)' : 'Safari';
-
-        modal.innerHTML = `<div class="compat-box">
-          <h2>Not Supported</h2>
-          <p>${browser} does not support WebGPU, which is required by this app.</p>
-          <p>Supported browsers:</p>
-          <div class="compat-list">
-            <span>Chrome / Edge</span> 113+<br>
-            <span>Safari</span> 18+ (macOS / iOS)<br>
-            <span>Firefox</span> Nightly (flag)
-          </div>
-        </div>`;
-        document.body.appendChild(modal);
-      } else {
-        const s = document.createElement('script');
-        s.type = 'module';
-        s.src = 'js/main.js';
-        document.body.appendChild(s);
-      }
-    })();
-  </script>
+  <section id="compat-modal" hidden lang="ko" aria-labelledby="compat-title" aria-describedby="compat-description">
+    <div class="compat-box">
+      <svg class="compat-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="m10 7 5 3-5 3Z" fill="currentColor" stroke="none"/></svg>
+      <div class="compat-brand">MMD ANJU · WEB PLAYER</div>
+      <h2 id="compat-title" tabindex="-1">이 환경에서는<br>재생할 수 없어요</h2>
+      <p id="compat-description">PC의 최신 Chrome 또는 Edge에서 열어주세요. WebGPU를 사용할 수 있는 환경이 필요합니다.</p>
+      <div class="compat-browsers" id="compat-browsers"><span>Google Chrome</span><span>Microsoft Edge</span></div>
+      <p class="compat-hint" id="compat-hint">앱 안에서 열었다면 주소를 복사해 브라우저에서 열어주세요. 이미 Chrome·Edge라면 업데이트와 그래픽 가속 설정을 확인해 주세요.</p>
+      <div class="compat-actions"><button type="button" id="compat-copy">주소 복사</button><button type="button" id="compat-retry">다시 시도</button></div>
+      <p id="compat-copy-status" role="status" hidden></p>
+      <input id="compat-url" aria-label="플레이어 주소" readonly hidden>
+      <a class="compat-link" href="https://tomlim2.github.io/mmd-anju/" target="_blank" rel="noopener">웹 플레이어 열기 ↗</a>
+    </div>
+  </section>
+  <script src="js/bootstrap.js"></script>
   <input type="file" id="input-vmd" webkitdirectory multiple accept=".vmd,.mp3,.ogg,.m4a,.wav" hidden>
   <input type="file" id="input-pmx" webkitdirectory multiple accept=".pmx,.bmp,.png,.jpg,.tga,.spa,.sph" hidden>
 </body>
