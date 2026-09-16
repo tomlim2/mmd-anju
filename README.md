@@ -74,7 +74,28 @@ Manifests (`samples/pmx/manifest.json`, `samples/vmd/manifest.json`) track all k
 
 ## Deploy
 
-Static hosting (GitHub Pages). No build step. ES modules loaded via importmap from CDN.
+Hosted at https://tomlim2.github.io/mmd-anju/ using GitHub Pages. No bundler; ES modules are loaded via importmap from CDN.
+
+`main` pushes and pull requests run validation only. Pushing a stable version tag (`vMAJOR.MINOR.PATCH`) validates the tagged source, deploys it, then creates a GitHub Release with release notes. The tagged commit must belong to `main` history.
+
+```bash
+# Validate and preview the actual deployment bundle (Python 3.10+, Node.js, Git)
+python3 scripts/build_site.py
+python3 -m http.server 3002 --directory _site
+
+# After committing reviewed changes, publish a new version:
+git push origin main
+git tag -a v1.0.1 -m "Describe this update"
+git push origin v1.0.1
+```
+
+The staging script copies only Git-tracked `index.html`, `js/`, `vendor/`, and `samples/` files into `_site/`. It checks JavaScript syntax, relative module imports, and manifest paths for deployed samples. Local `data`, analysis tools, and repository metadata are excluded. Add new runtime files to Git before validating. Keep local-only sample files untracked; `deployed: false` controls UI visibility, not file access.
+
+Optional human-written release notes live in `releases/<tag>.md` and must be committed before tagging. The workflow adds changes since the preceding version tag and the deployed commit. The first release lists the tagged commit. If no notes file exists, a summary and commit list are generated automatically. Failed runs can be retried in Actions; the same tag's existing release is updated instead of duplicated.
+
+Repository settings: Pages uses **GitHub Actions**, and the `github-pages` environment allows `v*` tags. Workflows use the built-in `GITHUB_TOKEN`, with no extra deployment secret. See `.github/workflows/release.yml` and `.github/workflows/validate.yml`.
+
+For development without staging:
 
 ```bash
 # Local dev

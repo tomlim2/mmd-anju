@@ -27,6 +27,13 @@ tools/                  # Python analysis scripts (PMX/VMD parsing)
 data -> symlink         # Local MMD archive (not in repo)
 ```
 
+## Release workflow
+
+- Run `python3 scripts/build_site.py` with Git, Node.js, and Python 3.10+ available before releasing.
+- `_site/` contains only tracked runtime files and samples; never deploy the repository root or the local `data` archive.
+- `main` pushes validate without deploying. Stable `vMAJOR.MINOR.PATCH` tags deploy to GitHub Pages and publish release notes after success.
+- Commit optional `releases/<tag>.md` notes before tagging. See README for release commands.
+
 ## TODO
 
 ### Multi-model & Camera
