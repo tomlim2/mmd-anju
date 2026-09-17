@@ -58,7 +58,7 @@ test('unsupported screen disables background and focuses card', () => {
 });
 
 test('file preview explains how to open the hosted player', () => {
-  assert.match(bootstrap({ protocol: 'file:' }).get('compat-description').textContent, /파일 미리보기/);
+  assert.match(bootstrap({ protocol: 'file:' }).get('compat-hint').textContent, /파일 미리보기/);
 });
 
 test('copy uses the public URL and gives a selectable fallback on failure', async () => {

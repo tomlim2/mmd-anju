@@ -8,13 +8,17 @@
   function showUnavailable(reason) {
     if (reason === 'load') {
       title.textContent = '플레이어를 불러오지 못했어요';
-      description.textContent = '연결이 끊겼거나 필요한 파일을 불러오지 못했습니다. 네트워크 연결을 확인하고 다시 시도해 주세요.';
-      hint.textContent = '문제가 계속되면 잠시 후 다시 접속해 주세요.';
-      document.getElementById('compat-browsers').hidden = true;
+      description.textContent = '네트워크 연결을 확인한 뒤 다시 접속해 주세요.';
     } else if (reason === 'secure') {
-      description.textContent = '파일 미리보기나 보안 연결이 아닌 페이지에서는 재생이 제한될 수 있습니다. 아래 웹 플레이어를 Chrome 또는 Edge에서 열어주세요.';
+      title.textContent = '브라우저에서 열어주세요';
+      description.textContent = '주소를 복사해 Chrome, Firefox 등 WebGPU를 지원하는 브라우저에서 열어주세요.';
+      hint.textContent = '파일 미리보기나 보안 연결이 아닌 페이지에서는 재생이 제한돼요.';
+      hint.hidden = false;
     } else if (reason === 'gpu') {
-      description.textContent = '이 기기에서 그래픽 기능을 시작하지 못했습니다. PC의 최신 Chrome 또는 Edge에서 다시 열어주세요.';
+      title.textContent = '그래픽 기능을 시작하지 못했어요';
+      description.textContent = 'Chrome, Firefox 등 WebGPU를 지원하는 브라우저에서 열어주세요.';
+      hint.textContent = '이미 사용 중이라면 그래픽 가속 설정을 확인해 주세요.';
+      hint.hidden = false;
     }
     card.hidden = false;
     for (const element of document.body.children) {
@@ -29,7 +33,7 @@
     status.hidden = false;
     try {
       await navigator.clipboard.writeText(publicUrl);
-      status.textContent = '주소를 복사했어요. Chrome 또는 Edge에 붙여넣어 주세요.';
+      status.textContent = '주소를 복사했어요.';
     } catch {
       const input = document.getElementById('compat-url');
       input.value = publicUrl;
